@@ -1,38 +1,56 @@
-﻿using Inventory.Application.Inventory.Commands.ReserveInventory;
+﻿using Inventory.Application.Inventory.Commands.ReserveOrderInventory;
 using MassTransit;
 using MediatR;
+using Microsoft.Extensions.Logging;
 using Ordering.Contracts.IntegrationEvents;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
-namespace Inventory.Infrastructure.Messaging.Consumers
+namespace Inventory.Infrastructure.Messaging.Consumers;
+
+public sealed class OrderConfirmedIntegrationEventConsumer
+    : IConsumer<OrderConfirmedIntegrationEvent>
 {
-    public sealed class OrderConfirmedIntegrationEventConsumer
-     : IConsumer<OrderConfirmedIntegrationEvent>
+    private readonly ISender _sender;
+    private readonly ILogger<OrderConfirmedIntegrationEventConsumer> _logger;
+
+    public OrderConfirmedIntegrationEventConsumer(
+        ISender sender,
+        ILogger<OrderConfirmedIntegrationEventConsumer> logger)
     {
-        private readonly ISender _sender;
+        _sender = sender;
+        _logger = logger;
+    }
 
-        public OrderConfirmedIntegrationEventConsumer(
-            ISender sender)
-        {
-            _sender = sender;
-        }
+    public async Task Consume(
+        ConsumeContext<OrderConfirmedIntegrationEvent> context)
+    {
+        var message = context.Message;
 
-        public async Task Consume(
-            ConsumeContext<OrderConfirmedIntegrationEvent> context)
-        {
-            foreach (var item in context.Message.Items)
-            {
-                await _sender.Send(
-                    new ReserveInventoryCommand(
-                        context.Message.OrderId,
-                        item.ProductId,
-                        item.Quantity),
-                    context.CancellationToken);
-            }
-        }
+        _logger.LogInformation(
+            "OrderConfirmedIntegrationEvent received. " +
+            "OrderId: {OrderId}, MessageId: {MessageId}, ItemsCount: {ItemsCount}",
+            message.OrderId,
+            context.MessageId,
+            message.Items.Count);
+
+        var items = message.Items
+            .Select(x => new ReserveOrderInventoryItem(
+                x.ProductId,
+                x.Quantity))
+            .ToList();
+
+        var command = new ReserveOrderInventoryCommand(
+            message.OrderId,
+            items);
+
+        var result = await _sender.Send(
+            command,
+            context.CancellationToken);
+
+        _logger.LogInformation(
+            "Order inventory reservation completed. " +
+            "OrderId: {OrderId}, ReservedItemsCount: {ReservedItemsCount}, AlreadyReserved: {AlreadyReserved}",
+            result.OrderId,
+            result.ReservedItemsCount,
+            result.AlreadyReserved);
     }
 }

@@ -1,23 +1,10 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-namespace Ordering.Domain.Orders
+﻿public enum OrderStatus
 {
-    public enum OrderStatus
-    {
-        Pending = 1,
-
-        Confirmed = 2,
-
-        Paid = 3,
-
-        Shipped = 4,
-
-        Completed = 5,
-
-        Cancelled = 6
-    }
+    Pending = 1,
+    AwaitingInventory = 2,
+    AwaitingPayment = 3,
+    InventoryFailed = 4,
+    Paid = 5,
+    Completed = 6,
+    Cancelled = 7
 }

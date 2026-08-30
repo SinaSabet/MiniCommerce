@@ -30,7 +30,7 @@ namespace Ordering.Application.Orders.Queries
 
             var order =
                 await _repository
-                .GetByIdAsync(request.OrderId);
+                .GetByIdAsync(request.OrderId, cancellationToken);
 
 
 

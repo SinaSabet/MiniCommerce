@@ -11,5 +11,5 @@ namespace Inventory.Application.Inventory.Commands.ReserveInventory
      Guid OrderId,
      Guid ProductId,
      int Quantity)
-     : IRequest;
+     : IRequest<ReserveInventoryCommandResponse>;
 }

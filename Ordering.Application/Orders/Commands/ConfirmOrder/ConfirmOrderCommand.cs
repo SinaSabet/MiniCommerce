@@ -1,12 +1,7 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using MediatR;
 
-namespace Ordering.Application.Orders.Commands.ConfirmOrder
-{
-    public record ConfirmOrderCommand(Guid OrderId)
-    {
-    }
-}
+namespace Ordering.Application.Orders.Commands.ConfirmOrder;
+
+public sealed record ConfirmOrderCommand(
+    Guid OrderId)
+    : IRequest<ConfirmOrderCommandResponse>;

@@ -2,25 +2,23 @@
 using Ordering.Domain.Orders;
 using Ordering.Domain.Repositories;
 
-namespace Ordering.Application.Orders.Commands.ConfirmOrder;
+namespace Ordering.Application.Orders.Commands.MarkInventoryReserved;
 
-public sealed class ConfirmOrderCommandHandler
-    : IRequestHandler<
-        ConfirmOrderCommand,
-        ConfirmOrderCommandResponse>
+public sealed class MarkInventoryReservedCommandHandler
+    : IRequestHandler<MarkInventoryReservedCommand>
 {
     private readonly IOrderRepository _orderRepository;
 
 
-    public ConfirmOrderCommandHandler(
+    public MarkInventoryReservedCommandHandler(
         IOrderRepository orderRepository)
     {
         _orderRepository = orderRepository;
     }
 
 
-    public async Task<ConfirmOrderCommandResponse> Handle(
-        ConfirmOrderCommand request,
+    public async Task Handle(
+        MarkInventoryReservedCommand request,
         CancellationToken cancellationToken)
     {
         var order =
@@ -34,11 +32,6 @@ public sealed class ConfirmOrderCommandHandler
                 $"Order {request.OrderId} was not found.");
 
 
-        order.Confirm();
-
-
-        return new ConfirmOrderCommandResponse(
-            OrderId: order.Id,
-            Status: order.Status.ToString());
+        order.MarkInventoryReserved();
     }
 }

@@ -36,7 +36,7 @@ namespace Ordering.Infrastructure.Persistence.Repositories
         }
 
         public async Task<Order?> GetByIdAsync(
-            Guid orderId)
+            Guid orderId,CancellationToken cancellationToken)
         {
 
             return await _context.Orders

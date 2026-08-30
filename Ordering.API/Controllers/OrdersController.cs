@@ -1,6 +1,8 @@
 ﻿using MediatR;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Ordering.API.Common;
+using Ordering.Application.Orders.Commands.ConfirmOrder;
 using Ordering.Application.Orders.Commands.CreateOrder;
 using Ordering.Application.Orders.Queries;
 
@@ -49,6 +51,27 @@ namespace Ordering.API.Controllers
 
             return Ok(result);
 
+        }
+
+
+
+        [HttpPost("{orderId:guid}/confirm")]
+        public async Task<
+    ActionResult<ApiResponse<ConfirmOrderCommandResponse>>>
+    Confirm(
+        Guid orderId,
+        CancellationToken cancellationToken)
+        {
+            var result =
+                await _mediator.Send(
+                    new ConfirmOrderCommand(orderId),
+                    cancellationToken);
+
+
+            return Ok(
+                ApiResponse<ConfirmOrderCommandResponse>.Ok(
+                    result,
+                    "Order confirmed successfully."));
         }
     }
 }

@@ -149,19 +149,23 @@ public class Order : AggregateRoot<Guid>
 
     public void Confirm()
     {
-        OrderRules.CannotConfirmEmptyOrder(_items.Count);
+        OrderRules.CannotConfirmEmptyOrder(
+            _items.Count);
 
         if (Status != OrderStatus.Pending)
-            throw new DomainException("Invalid order state");
+            throw new DomainException(
+                "Only pending orders can be confirmed.");
 
-        Status = OrderStatus.Confirmed;
+        Status = OrderStatus.AwaitingInventory;
 
 
-        var items = _items
-            .Select(x => new OrderConfirmedItem(
-                x.ProductId,
-                x.Quantity))
-            .ToList();
+        var items =
+            _items
+                .Select(x =>
+                    new OrderConfirmedItem(
+                        x.ProductId,
+                        x.Quantity))
+                .ToList();
 
 
         AddDomainEvent(
@@ -170,11 +174,10 @@ public class Order : AggregateRoot<Guid>
                 items));
     }
 
-
     public void Pay()
     {
 
-        if (Status != OrderStatus.Confirmed)
+        if (Status != OrderStatus.Paid)
             throw new DomainException(
                 "Invalid order state");
 
@@ -192,6 +195,25 @@ public class Order : AggregateRoot<Guid>
     }
 
 
+    public void MarkInventoryReservationFailed()
+    {
+        if (Status != OrderStatus.AwaitingInventory)
+            throw new DomainException(
+                "Order must be awaiting inventory.");
+
+        Status = OrderStatus.InventoryFailed;
+    }
+
+
+
+    public void MarkInventoryReserved()
+    {
+        if (Status != OrderStatus.AwaitingInventory)
+            throw new DomainException(
+                "Order must be awaiting inventory.");
+
+        Status = OrderStatus.AwaitingPayment;
+    }
 
     public void Cancel()
     {

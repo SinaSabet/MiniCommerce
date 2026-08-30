@@ -32,7 +32,7 @@ namespace Ordering.Application.Orders.Commands.CancelOrder
 
             var order =
                 await _repository
-                .GetByIdAsync(command.OrderId);
+                .GetByIdAsync(command.OrderId,cancellationToken);
 
 
 

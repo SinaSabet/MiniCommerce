@@ -49,7 +49,9 @@ namespace Ordering.Application
             services.AddScoped<
                  IDomainEventHandler<OrderPaidEvent>,
                  OrderPaidEventHandler>();
-
+            services.AddScoped<
+                IDomainEventHandler<OrderConfirmedEvent>,
+                OrderConfirmedEventHandler>();
 
             return services;
 

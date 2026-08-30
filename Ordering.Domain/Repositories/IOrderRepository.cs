@@ -9,7 +9,7 @@ namespace Ordering.Domain.Repositories
 {
     public interface IOrderRepository
     {
-        Task<Order?> GetByIdAsync(Guid id);
+        Task<Order?> GetByIdAsync(Guid id,CancellationToken cancellationToken);
 
         Task AddAsync(Order order);
 

@@ -5,6 +5,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Ordering.Application.Interfaces;
 using Ordering.Application.Services;
 using Ordering.Domain.Repositories;
+using Ordering.Infrastructure.Messaging.Consumers;
 using Ordering.Infrastructure.Persistence;
 using Ordering.Infrastructure.Persistence.Repositories;
 using System;
@@ -55,10 +56,14 @@ namespace Ordering.Infrastructure
             #region MassTransit
             services.AddMassTransit(x =>
             {
+                x.AddConsumer<
+                    InventoryReservedIntegrationEventConsumer>();
+                x.AddConsumer<
+                    InventoryReservationFailedIntegrationEventConsumer>();
+
                 x.AddEntityFrameworkOutbox<OrderingDbContext>(o =>
                 {
                     o.UseSqlServer();
-
                     o.UseBusOutbox();
                 });
 
@@ -66,15 +71,36 @@ namespace Ordering.Infrastructure
                 x.UsingRabbitMq((context, cfg) =>
                 {
                     cfg.Host(
-                        "localhost",
-                        "/",
+                        configuration["RabbitMQ:Host"]!,
+                        configuration["RabbitMQ:VirtualHost"] ?? "/",
                         h =>
                         {
-                            h.Username("admin");
-                            h.Password("admin123");
+                            h.Username(
+                                configuration["RabbitMQ:Username"]!);
+
+                            h.Password(
+                                configuration["RabbitMQ:Password"]!);
                         });
 
-                    cfg.ConfigureEndpoints(context);
+
+                    cfg.ReceiveEndpoint(
+                        "ordering-inventory-reserved",
+                        endpoint =>
+                        {
+                            endpoint.ConfigureConsumer<
+                                InventoryReservedIntegrationEventConsumer>(
+                                context);
+                        });
+
+
+                    cfg.ReceiveEndpoint(
+                       "ordering-inventory-reservation-failed",
+                       endpoint =>
+                       {
+                          endpoint.ConfigureConsumer<
+                          InventoryReservationFailedIntegrationEventConsumer>(
+                          context);
+                       });
                 });
             });
             #endregion

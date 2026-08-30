@@ -20,6 +20,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Inventory.Application\Inventory.Application.csproj" />
+    <ProjectReference Include="..\Inventory.Contracts\Inventory.Contracts.csproj" />
     <ProjectReference Include="..\Inventory.Domain\Inventory.Domain.csproj" />
     <ProjectReference Include="..\Ordering.Contracts\Ordering.Contracts.csproj" />
   </ItemGroup>

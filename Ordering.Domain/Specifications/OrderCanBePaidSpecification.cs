@@ -11,7 +11,7 @@ namespace Ordering.Domain.Specifications
     {
         public bool IsSatisfiedBy(Order order)
         {
-            return order.Status == OrderStatus.Confirmed;
+            return order.Status == OrderStatus.AwaitingPayment;
         }
     }
 }
