@@ -11,25 +11,30 @@ WORKDIR /src
 COPY MiniCommerce.sln .
 
 
-# Copy shared projects
+# Copy shared libraries
 COPY BuildingBlocks ./BuildingBlocks
 COPY BuildingBlocks.Contracts ./BuildingBlocks.Contracts
 
 
-# Copy Ordering projects
-COPY Ordering.API ./Ordering.API
-COPY Ordering.Application ./Ordering.Application
-COPY Ordering.Domain ./Ordering.Domain
-COPY Ordering.Infrastructure ./Ordering.Infrastructure
+# Copy Inventory Microservice
+
+COPY Inventory.API ./Inventory.API
+COPY Inventory.Application ./Inventory.Application
+COPY Inventory.Domain ./Inventory.Domain
+COPY Inventory.Infrastructure ./Inventory.Infrastructure
 
 
-# Restore only Ordering
-RUN dotnet restore Ordering.API/Ordering.API.csproj
+
+# Restore
+
+RUN dotnet restore Inventory.API/Inventory.API.csproj
+
 
 
 # Publish
+
 RUN dotnet publish \
-    Ordering.API/Ordering.API.csproj \
+    Inventory.API/Inventory.API.csproj \
     -c Release \
     -o /app/publish \
     --no-restore
@@ -52,4 +57,4 @@ COPY --from=build /app/publish .
 EXPOSE 8080
 
 
-ENTRYPOINT ["dotnet","Ordering.API.dll"]
+ENTRYPOINT ["dotnet","Inventory.API.dll"]
