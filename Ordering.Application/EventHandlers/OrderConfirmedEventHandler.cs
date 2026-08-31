@@ -1,6 +1,6 @@
-﻿using MassTransit;
+﻿using BuildingBlocks.Contracts.Events.Ordering;
+using MassTransit;
 using Ordering.Application.Interfaces;
-using Ordering.Contracts.IntegrationEvents;
 using Ordering.Domain.Events;
 
 namespace Ordering.Application.EventHandlers;

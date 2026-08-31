@@ -1,8 +1,8 @@
-﻿using Inventory.Application.Inventory.Commands.ReserveOrderInventory;
+﻿using BuildingBlocks.Contracts.Events.Ordering;
+using Inventory.Application.Inventory.Commands.ReserveOrderInventory;
 using MassTransit;
 using MediatR;
 using Microsoft.Extensions.Logging;
-using Ordering.Contracts.IntegrationEvents;
 
 namespace Inventory.Infrastructure.Messaging.Consumers;
 

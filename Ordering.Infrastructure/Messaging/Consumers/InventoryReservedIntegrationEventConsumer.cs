@@ -1,4 +1,4 @@
-﻿using Inventory.Contracts.IntegrationEvents;
+﻿using BuildingBlocks.Contracts.Events.Inventory;
 using MassTransit;
 using MediatR;
 using Ordering.Application.Orders.Commands.MarkInventoryReserved;

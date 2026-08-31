@@ -1,6 +1,6 @@
-﻿using MassTransit;
+﻿using BuildingBlocks.Contracts.Events.Ordering;
+using MassTransit;
 using Microsoft.Extensions.Logging;
-using Ordering.Contracts.IntegrationEvents;
 
 namespace Inventory.Infrastructure.Messaging.Consumers;
 
