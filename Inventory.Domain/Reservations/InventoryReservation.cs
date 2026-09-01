@@ -69,11 +69,15 @@ namespace Inventory.Domain.Reservations
 
 
             reservation.AddDomainEvent(
-                new InventoryReservedEvent(
-                    reservation.Id,
-                    orderId,
-                    productId,
-                    quantity));
+       new InventoryReservedDomainEvent(
+           reservation.OrderId,
+           reservation.Id,
+           new[]
+           {
+            new InventoryReservedDomainItem(
+                reservation.ProductId,
+                reservation.Quantity)
+           }));
 
 
             return reservation;

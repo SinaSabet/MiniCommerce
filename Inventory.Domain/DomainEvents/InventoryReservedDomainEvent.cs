@@ -1,15 +1,15 @@
 ﻿using Inventory.Domain.Common.Events;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
-namespace Inventory.Domain.DomainEvents
-{
-    public sealed record InventoryReservedDomainEvent(
+namespace Inventory.Domain.DomainEvents;
+
+public sealed record InventoryReservedDomainEvent(
     Guid OrderId,
-    Guid ReservationId
+    Guid ReservationId,
+    IReadOnlyCollection<InventoryReservedDomainItem> Items
 ) : DomainEvent;
 
-}
+
+public sealed record InventoryReservedDomainItem(
+    Guid ProductId,
+    int Quantity
+);
