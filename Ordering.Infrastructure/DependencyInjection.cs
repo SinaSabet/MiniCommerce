@@ -8,6 +8,7 @@ using Ordering.Domain.Repositories;
 using Ordering.Infrastructure.Messaging.Consumers;
 using Ordering.Infrastructure.Persistence;
 using Ordering.Infrastructure.Persistence.Repositories;
+using Ordering.Infrastructure.Saga;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -33,6 +34,14 @@ namespace Ordering.Infrastructure
                         .GetConnectionString(
                         "OrderingConnection"));
                 });
+            services.AddDbContext<OrderSagaDbContext>(
+                    options =>
+                    {
+                        options.UseSqlServer(
+                                configuration
+                                .GetConnectionString(
+                                "OrderingConnection"));
+                    });
 
             services.AddScoped<IOrderingDbContext>(
           provider =>
@@ -56,6 +65,22 @@ namespace Ordering.Infrastructure
             #region MassTransit
             services.AddMassTransit(x =>
             {
+
+                x.AddSagaStateMachine<
+                    OrderStateMachine,
+                    OrderSagaState>()
+
+                    .EntityFrameworkRepository(r =>
+                    {
+                    r.ExistingDbContext<OrderSagaDbContext>();
+
+                    r.UseSqlServer();
+                    });
+
+
+
+
+
                 x.AddConsumer<
                     InventoryReservedIntegrationEventConsumer>();
                 x.AddConsumer<

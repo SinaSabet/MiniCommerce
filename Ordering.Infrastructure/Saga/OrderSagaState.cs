@@ -1,22 +1,43 @@
 ﻿using MassTransit;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
-namespace Ordering.Infrastructure.Saga
+namespace Ordering.Infrastructure.Saga;
+
+
+public sealed class OrderSagaState
+    : SagaStateMachineInstance
 {
-    public class OrderSagaState: SagaStateMachineInstance
-    {
-        public Guid CorrelationId { get; set; }
 
-        public string CurrentState { get; set; }
+    public Guid CorrelationId { get; set; }
 
-        public Guid OrderId { get; set; }
 
-        public bool InventoryReserved { get; set; }
+    public string CurrentState { get; set; } = default!;
 
-        public bool PaymentCompleted { get; set; }
-    }
+
+
+    public Guid OrderId { get; set; }
+
+
+
+    public decimal Amount { get; set; }
+
+
+
+    public string Currency { get; set; } = default!;
+
+
+
+    public bool InventoryReserved { get; set; }
+
+
+
+    public bool PaymentCompleted { get; set; }
+
+
+
+    public DateTime CreatedAt { get; set; }
+
+
+
+    public DateTime? CompletedAt { get; set; }
+
 }

@@ -152,11 +152,20 @@ public class Order : AggregateRoot<Guid>
         OrderRules.CannotConfirmEmptyOrder(
             _items.Count);
 
+
         if (Status != OrderStatus.Pending)
             throw new DomainException(
                 "Only pending orders can be confirmed.");
 
+
+
         Status = OrderStatus.AwaitingInventory;
+
+
+
+        var total =
+            CalculateTotal();
+
 
 
         var items =
@@ -168,12 +177,14 @@ public class Order : AggregateRoot<Guid>
                 .ToList();
 
 
+
         AddDomainEvent(
             new OrderConfirmedEvent(
                 Id,
+                total.Amount,
+                total.Currency,
                 items));
     }
-
     public void Pay()
     {
 

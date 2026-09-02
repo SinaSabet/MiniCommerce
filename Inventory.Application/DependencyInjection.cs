@@ -1,4 +1,7 @@
 ﻿using Inventory.Application.Behaviors;
+using Inventory.Application.EventHandlers;
+using Inventory.Application.Interfaces;
+using Inventory.Domain.DomainEvents;
 using MediatR;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -22,6 +25,10 @@ public static class DependencyInjection
         services.AddTransient(
          typeof(IPipelineBehavior<,>),
          typeof(TransactionBehavior<,>));
+
+        services.AddScoped<
+            IDomainEventHandler<InventoryReservedDomainEvent>,
+            InventoryReservedDomainEventHandler>();
 
         //services.AddValidatorsFromAssembly(
         //    typeof(DependencyInjection)

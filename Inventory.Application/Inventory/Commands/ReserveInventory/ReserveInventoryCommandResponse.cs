@@ -1,10 +1,16 @@
 ﻿namespace Inventory.Application.Inventory.Commands.ReserveInventory;
 
+
 public sealed record ReserveInventoryCommandResponse(
+
     Guid ReservationId,
+
     Guid OrderId,
-    Guid ProductId,
-    int Quantity,
-    string Status,
+
+    int ReservedItemsCount,
+
     bool AlreadyReserved,
-    string Message);
+
+    string Message
+
+);

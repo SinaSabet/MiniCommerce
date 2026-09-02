@@ -2,14 +2,17 @@
 
 namespace Inventory.Domain.DomainEvents;
 
+
 public sealed record InventoryReservedDomainEvent(
     Guid OrderId,
     Guid ReservationId,
-    IReadOnlyCollection<InventoryReservedDomainItem> Items
-) : DomainEvent;
+    IReadOnlyCollection<InventoryReservedItem> Items
+)
+: DomainEvent;
 
 
-public sealed record InventoryReservedDomainItem(
+
+public sealed record InventoryReservedItem(
     Guid ProductId,
     int Quantity
 );

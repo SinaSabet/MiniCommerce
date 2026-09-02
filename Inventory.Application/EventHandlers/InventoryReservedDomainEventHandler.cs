@@ -25,7 +25,7 @@ namespace Inventory.Application.EventHandlers
         {
             var items = domainEvent.Items
                 .Select(x =>
-                    new InventoryReservedItem(
+                    new BuildingBlocks.Contracts.Events.Inventory.InventoryReservedItem(
                         x.ProductId,
                         x.Quantity))
                 .ToList();

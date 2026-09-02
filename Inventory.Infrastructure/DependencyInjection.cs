@@ -1,4 +1,5 @@
 ﻿using Inventory.Application.Interfaces;
+using Inventory.Application.Services;
 using Inventory.Domain.InventoryItems;
 using Inventory.Domain.Reservations;
 using Inventory.Infrastructure.Messaging.Consumers;
@@ -38,10 +39,11 @@ public static class DependencyInjection
             UnitOfWork>();
 
 
+        services.AddScoped<IDomainEventDispatcher, DomainEventDispatcher>();
+
         services.AddMassTransit(x =>
         {
-            x.AddConsumer<
-                OrderConfirmedIntegrationEventConsumer>();
+            x.AddConsumer<ReserveInventoryRequestedIntegrationEventConsumer>();
 
             x.UsingRabbitMq((context, cfg) =>
             {
@@ -57,15 +59,7 @@ public static class DependencyInjection
                             configuration["RabbitMQ:Password"]!);
                     });
 
-
-                cfg.ReceiveEndpoint(
-                    "inventory-order-confirmed",
-                    endpoint =>
-                    {
-                        endpoint.ConfigureConsumer<
-                            OrderConfirmedIntegrationEventConsumer>(
-                            context);
-                    });
+                cfg.ConfigureEndpoints(context);
             });
         });
 

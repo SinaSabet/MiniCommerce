@@ -6,11 +6,13 @@ using Microsoft.Extensions.Logging;
 
 namespace Inventory.Application.Inventory.Commands.ReserveInventory;
 
+
 public sealed class ReserveInventoryCommandHandler
     : IRequestHandler<
         ReserveInventoryCommand,
         ReserveInventoryCommandResponse>
 {
+
     private readonly IInventoryItemRepository _inventoryRepository;
 
     private readonly IInventoryReservationRepository _reservationRepository;
@@ -18,6 +20,7 @@ public sealed class ReserveInventoryCommandHandler
     private readonly IUnitOfWork _unitOfWork;
 
     private readonly ILogger<ReserveInventoryCommandHandler> _logger;
+
 
 
     public ReserveInventoryCommandHandler(
@@ -33,96 +36,135 @@ public sealed class ReserveInventoryCommandHandler
     }
 
 
+
+
     public async Task<ReserveInventoryCommandResponse> Handle(
         ReserveInventoryCommand request,
         CancellationToken cancellationToken)
     {
-      
-        var existingReservation =
-            await _reservationRepository
-                .GetByOrderAndProductAsync(
+
+        var reservations = new List<InventoryReservation>();
+
+        var alreadyReserved = true;
+
+
+
+        foreach (var item in request.Items)
+        {
+
+            var existingReservation =
+                await _reservationRepository
+                    .GetByOrderAndProductAsync(
+                        request.OrderId,
+                        item.ProductId,
+                        cancellationToken);
+
+
+
+            if (existingReservation is not null)
+            {
+
+                _logger.LogInformation(
+                    "Inventory reservation already exists. " +
+                    "OrderId: {OrderId}, ProductId: {ProductId}",
                     request.OrderId,
-                    request.ProductId,
-                    cancellationToken);
+                    item.ProductId);
 
 
-        if (existingReservation is not null)
-        {
+                reservations.Add(existingReservation);
+
+                continue;
+            }
+
+
+
+            alreadyReserved = false;
+
+
+
+            var inventoryItem =
+                await _inventoryRepository
+                    .GetByProductIdAsync(
+                        item.ProductId,
+                        cancellationToken);
+
+
+
+            if (inventoryItem is null)
+            {
+                throw new InvalidOperationException(
+                    $"Inventory for product {item.ProductId} was not found.");
+            }
+
+
+
+            inventoryItem.Reserve(
+                item.Quantity);
+
+
+
+            var reservation =
+                InventoryReservation.Create(
+                    request.OrderId,
+                    item.ProductId,
+                    item.Quantity);
+
+
+
+            await _reservationRepository.AddAsync(
+                reservation,
+                cancellationToken);
+
+
+
+            reservations.Add(
+                reservation);
+
+
             _logger.LogInformation(
-                "Inventory reservation already exists. " +
-                "OrderId: {OrderId}, ProductId: {ProductId}, ReservationId: {ReservationId}",
+                "Inventory reserved. " +
+                "OrderId: {OrderId}, ProductId: {ProductId}, Quantity: {Quantity}",
                 request.OrderId,
-                request.ProductId,
-                existingReservation.Id);
+                item.ProductId,
+                item.Quantity);
 
-
-            return new ReserveInventoryCommandResponse(
-                ReservationId: existingReservation.Id,
-                OrderId: existingReservation.OrderId,
-                ProductId: existingReservation.ProductId,
-                Quantity: existingReservation.Quantity,
-                Status: existingReservation.Status.ToString(),
-                AlreadyReserved: true,
-                Message: "Inventory was already reserved.");
         }
 
 
-        /*
-         * مرحله 2
-         * موجودی Product را از Inventory می‌خوانیم.
-         */
-        var inventoryItem =
-            await _inventoryRepository
-                .GetByProductIdAsync(
-                    request.ProductId,
-                    cancellationToken);
 
-
-        if (inventoryItem is null)
-        {
-            throw new InvalidOperationException(
-                $"Inventory for product {request.ProductId} was not found.");
-        }
-
-
-        inventoryItem.Reserve(
-            request.Quantity);
-
-
-   
-        var reservation =
-            InventoryReservation.Create(
-                request.OrderId,
-                request.ProductId,
-                request.Quantity);
-
-
-        await _reservationRepository.AddAsync(
-            reservation,
-            cancellationToken);
-
-
-      
         await _unitOfWork.SaveChangesAsync(
             cancellationToken);
 
 
-        _logger.LogInformation(
-            "Inventory reserved successfully. " +
-            "OrderId: {OrderId}, ProductId: {ProductId}, Quantity: {Quantity}, ReservationId: {ReservationId}",
-            request.OrderId,
-            request.ProductId,
-            request.Quantity,
-            reservation.Id);
+
+        var firstReservation =
+            reservations.First();
+
 
 
         return new ReserveInventoryCommandResponse(
-            ReservationId: reservation.Id,
-            OrderId: reservation.OrderId,
-            ProductId: reservation.ProductId,
-            Quantity: reservation.Quantity,
-            Status: reservation.Status.ToString(),
-            AlreadyReserved: false,
-            Message: "Inventory reserved successfully.");
+
+            ReservationId:
+                firstReservation.Id,
+
+
+            OrderId:
+                request.OrderId,
+
+
+            ReservedItemsCount:
+                reservations.Count,
+
+
+            AlreadyReserved:
+                alreadyReserved,
+
+
+            Message:
+                alreadyReserved
+                ? "Inventory was already reserved."
+                : "Inventory reserved successfully."
+
+        );
     }
 }
