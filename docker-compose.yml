@@ -7,160 +7,353 @@ services:
 
     container_name: ordering-sqlserver
 
+    restart: unless-stopped
+
     environment:
+
       ACCEPT_EULA: "Y"
-      MSSQL_SA_PASSWORD: "1234567890"
+
+      MSSQL_SA_PASSWORD: ${MSSQL_PASSWORD}
+
 
     ports:
+
       - "14331:1433"
 
+
     volumes:
+
       - ordering-db-data:/var/opt/mssql
 
+
+    healthcheck:
+
+      test:
+        [
+          "CMD-SHELL",
+          "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P ${MSSQL_PASSWORD} -C -Q 'SELECT 1'"
+        ]
+
+      interval: 10s
+
+      timeout: 5s
+
+      retries: 10
+
+
     networks:
+
       - minicomm-network
+
+
 
 
 
   inventory-db:
 
+
     image: mcr.microsoft.com/mssql/server:2022-latest
+
 
     container_name: inventory-sqlserver
 
+
+    restart: unless-stopped
+
+
     environment:
+
       ACCEPT_EULA: "Y"
-      MSSQL_SA_PASSWORD: "1234567890"
+
+      MSSQL_SA_PASSWORD: ${MSSQL_PASSWORD}
+
+
 
     ports:
+
       - "14332:1433"
 
+
+
     volumes:
+
       - inventory-db-data:/var/opt/mssql
 
+
+
+    healthcheck:
+
+
+      test:
+        [
+          "CMD-SHELL",
+          "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P ${MSSQL_PASSWORD} -C -Q 'SELECT 1'"
+        ]
+
+      interval: 10s
+
+      timeout: 5s
+
+      retries: 10
+
+
+
     networks:
+
       - minicomm-network
+
+
+
+
 
 
 
   rabbitmq:
 
+
     image: rabbitmq:3-management
+
 
     container_name: minicomm-rabbitmq
 
+
+    restart: unless-stopped
+
+
+
+    environment:
+
+      RABBITMQ_DEFAULT_USER: ${RABBIT_USERNAME}
+
+      RABBITMQ_DEFAULT_PASS: ${RABBIT_PASSWORD}
+
+
+
     ports:
+
       - "5672:5672"
+
       - "15672:15672"
 
+
+
+    healthcheck:
+
+
+      test:
+        [
+          "CMD",
+          "rabbitmq-diagnostics",
+          "ping"
+        ]
+
+      interval: 10s
+
+      timeout: 5s
+
+      retries: 10
+
+
+
     networks:
+
       - minicomm-network
+
+
+
+
 
 
 
   redis:
 
+
     image: redis:7
+
 
     container_name: minicomm-redis
 
+
+    restart: unless-stopped
+
+
+
     ports:
+
       - "6379:6379"
 
+
+
     networks:
+
       - minicomm-network
+
+
+
+
 
 
 
   ordering-api:
 
+
     image: minicommerce-ordering
+
 
     container_name: ordering-api
 
+
+    restart: unless-stopped
+
+
+
     ports:
+
       - "8080:8080"
+
+
 
     environment:
 
-      ASPNETCORE_ENVIRONMENT: Development
+
+      ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT}
+
 
 
       ConnectionStrings__OrderingConnection:
+
         Server=ordering-db;
         Database=MiniCommerce.Ordering;
         User Id=sa;
-        Password=YourStrong@Passw0rd;
-        TrustServerCertificate=True
+        Password=${MSSQL_PASSWORD};
+        TrustServerCertificate=True;
+
 
 
       RabbitMQ__Host: rabbitmq
+
       RabbitMQ__VirtualHost: /
-      RabbitMQ__Username: guest
-      RabbitMQ__Password: guest
+
+      RabbitMQ__Username: ${RABBIT_USERNAME}
+
+      RabbitMQ__Password: ${RABBIT_PASSWORD}
+
 
 
     depends_on:
-      - ordering-db
-      - rabbitmq
+
+
+      ordering-db:
+
+        condition: service_healthy
+
+
+      rabbitmq:
+
+        condition: service_healthy
+
 
 
     networks:
+
       - minicomm-network
+
+
+
 
 
 
 
   inventory-api:
 
+
     image: minicommerce-inventory
+
 
     container_name: inventory-api
 
 
+    restart: unless-stopped
+
+
+
     ports:
+
       - "8081:8080"
+
 
 
     environment:
 
 
-      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT}
+
 
 
       ConnectionStrings__InventoryConnection:
+
         Server=inventory-db;
         Database=MiniCommerce.Inventory;
         User Id=sa;
-        Password=YourStrong@Passw0rd;
-        TrustServerCertificate=True
+        Password=${MSSQL_PASSWORD};
+        TrustServerCertificate=True;
+
 
 
       RabbitMQ__Host: rabbitmq
+
       RabbitMQ__VirtualHost: /
-      RabbitMQ__Username: guest
-      RabbitMQ__Password: guest
+
+      RabbitMQ__Username: ${RABBIT_USERNAME}
+
+      RabbitMQ__Password: ${RABBIT_PASSWORD}
+
+
 
 
     depends_on:
 
-      - inventory-db
-      - rabbitmq
+
+      inventory-db:
+
+        condition: service_healthy
+
+
+      rabbitmq:
+
+        condition: service_healthy
+
 
 
     networks:
+
       - minicomm-network
+
+
+
+
 
 
 
 volumes:
 
+
   ordering-db-data:
+
 
   inventory-db-data:
 
 
 
+
+
+
+
 networks:
 
+
   minicomm-network:
+
+    name: minicomm-network
+
+    driver: bridge
