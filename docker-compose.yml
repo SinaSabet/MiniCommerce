@@ -1,6 +1,5 @@
 services:
 
-
   ordering-db:
 
     image: mcr.microsoft.com/mssql/server:2022-latest
@@ -31,14 +30,14 @@ services:
       test:
         [
           "CMD-SHELL",
-          "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P ${MSSQL_PASSWORD} -C -Q 'SELECT 1'"
+          "timeout 5 bash -c '</dev/tcp/127.0.0.1/1433'"
         ]
 
       interval: 10s
 
       timeout: 5s
 
-      retries: 10
+      retries: 20
 
 
     networks:
@@ -51,12 +50,9 @@ services:
 
   inventory-db:
 
-
     image: mcr.microsoft.com/mssql/server:2022-latest
 
-
     container_name: inventory-sqlserver
-
 
     restart: unless-stopped
 
@@ -68,11 +64,9 @@ services:
       MSSQL_SA_PASSWORD: ${MSSQL_PASSWORD}
 
 
-
     ports:
 
       - "14332:1433"
-
 
 
     volumes:
@@ -80,22 +74,19 @@ services:
       - inventory-db-data:/var/opt/mssql
 
 
-
     healthcheck:
-
 
       test:
         [
           "CMD-SHELL",
-          "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P ${MSSQL_PASSWORD} -C -Q 'SELECT 1'"
+          "timeout 5 bash -c '</dev/tcp/127.0.0.1/1433'"
         ]
 
       interval: 10s
 
       timeout: 5s
 
-      retries: 10
-
+      retries: 20
 
 
     networks:
@@ -106,19 +97,13 @@ services:
 
 
 
-
-
   rabbitmq:
-
 
     image: rabbitmq:3-management
 
-
     container_name: minicomm-rabbitmq
 
-
     restart: unless-stopped
-
 
 
     environment:
@@ -128,7 +113,6 @@ services:
       RABBITMQ_DEFAULT_PASS: ${RABBIT_PASSWORD}
 
 
-
     ports:
 
       - "5672:5672"
@@ -136,9 +120,7 @@ services:
       - "15672:15672"
 
 
-
     healthcheck:
-
 
       test:
         [
@@ -154,12 +136,9 @@ services:
       retries: 10
 
 
-
     networks:
 
       - minicomm-network
-
-
 
 
 
@@ -167,21 +146,16 @@ services:
 
   redis:
 
-
     image: redis:7
-
 
     container_name: minicomm-redis
 
-
     restart: unless-stopped
-
 
 
     ports:
 
       - "6379:6379"
-
 
 
     networks:
@@ -192,19 +166,13 @@ services:
 
 
 
-
-
   ordering-api:
-
 
     image: minicommerce-ordering
 
-
     container_name: ordering-api
 
-
     restart: unless-stopped
-
 
 
     ports:
@@ -212,22 +180,12 @@ services:
       - "8080:8080"
 
 
-
     environment:
-
 
       ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT}
 
 
-
-      ConnectionStrings__OrderingConnection:
-
-        Server=ordering-db;
-        Database=MiniCommerce.Ordering;
-        User Id=sa;
-        Password=${MSSQL_PASSWORD};
-        TrustServerCertificate=True;
-
+      ConnectionStrings__OrderingConnection: "Server=ordering-db;Database=MiniCommerce.Ordering;User Id=sa;Password=${MSSQL_PASSWORD};TrustServerCertificate=True"
 
 
       RabbitMQ__Host: rabbitmq
@@ -239,9 +197,7 @@ services:
       RabbitMQ__Password: ${RABBIT_PASSWORD}
 
 
-
     depends_on:
-
 
       ordering-db:
 
@@ -253,7 +209,6 @@ services:
         condition: service_healthy
 
 
-
     networks:
 
       - minicomm-network
@@ -262,19 +217,13 @@ services:
 
 
 
-
-
   inventory-api:
-
 
     image: minicommerce-inventory
 
-
     container_name: inventory-api
 
-
     restart: unless-stopped
-
 
 
     ports:
@@ -282,22 +231,12 @@ services:
       - "8081:8080"
 
 
-
     environment:
-
 
       ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT}
 
 
-
-      ConnectionStrings__InventoryConnection:
-
-        Server=inventory-db;
-        Database=MiniCommerce.Inventory;
-        User Id=sa;
-        Password=${MSSQL_PASSWORD};
-        TrustServerCertificate=True;
-
+      ConnectionStrings__InventoryConnection: "Server=inventory-db;Database=MiniCommerce.Inventory;User Id=sa;Password=${MSSQL_PASSWORD};TrustServerCertificate=True"
 
 
       RabbitMQ__Host: rabbitmq
@@ -309,10 +248,7 @@ services:
       RabbitMQ__Password: ${RABBIT_PASSWORD}
 
 
-
-
     depends_on:
-
 
       inventory-db:
 
@@ -324,7 +260,6 @@ services:
         condition: service_healthy
 
 
-
     networks:
 
       - minicomm-network
@@ -333,13 +268,9 @@ services:
 
 
 
-
-
 volumes:
 
-
   ordering-db-data:
-
 
   inventory-db-data:
 
@@ -347,10 +278,7 @@ volumes:
 
 
 
-
-
 networks:
-
 
   minicomm-network:
 
