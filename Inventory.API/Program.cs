@@ -1,11 +1,15 @@
 using Inventory.API.Middleware;
 using Inventory.Application;
 using Inventory.Infrastructure;
+using Inventory.Infrastructure.Persistence;
 using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
 
-
+builder.Services
+    .AddHealthChecks()
+    .AddDbContextCheck<InventoryDbContext>()
+    .AddRabbitMQ();
 
 builder.Services.AddControllers();
 builder.Services.AddApplication();

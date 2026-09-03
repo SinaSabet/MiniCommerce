@@ -1,9 +1,19 @@
 using Ordering.API.Middleware;
 using Ordering.Application;
 using Ordering.Infrastructure;
+using Ordering.Infrastructure.Persistence;
 using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
+
+
+builder.Services
+    .AddHealthChecks()
+    .AddDbContextCheck<OrderingDbContext>()
+    .AddRabbitMQ();
+
+
+
 
 
 builder.Services.AddControllers();
