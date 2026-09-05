@@ -68,7 +68,8 @@ namespace Ordering.Infrastructure
 
                 x.AddSagaStateMachine<
                     OrderStateMachine,
-                    OrderSagaState>()
+                    OrderSagaState,
+                    OrderStateMachineDefinition>()
 
                     .EntityFrameworkRepository(r =>
                     {
@@ -76,6 +77,13 @@ namespace Ordering.Infrastructure
 
                     r.UseSqlServer();
                     });
+
+
+
+                x.AddEntityFrameworkOutbox<OrderSagaDbContext>(o =>
+                {
+                    o.UseSqlServer();
+                });
 
 
 
@@ -95,8 +103,13 @@ namespace Ordering.Infrastructure
 
                 x.UsingRabbitMq((context, cfg) =>
                 {
+                    var port = ushort.TryParse(configuration["RabbitMQ:Port"], out var configuredPort)
+                        ? configuredPort
+                        : (ushort)5672;
+
                     cfg.Host(
                         configuration["RabbitMQ:Host"]!,
+                        port,
                         configuration["RabbitMQ:VirtualHost"] ?? "/",
                         h =>
                         {
@@ -107,6 +120,14 @@ namespace Ordering.Infrastructure
                                 configuration["RabbitMQ:Password"]!);
                         });
 
+                    cfg.UseMessageRetry(r =>
+                    {
+                        r.Exponential(
+                            retryLimit: 5,
+                            minInterval: TimeSpan.FromSeconds(1),
+                            maxInterval: TimeSpan.FromSeconds(30),
+                            intervalDelta: TimeSpan.FromSeconds(5));
+                    });
 
                     cfg.ReceiveEndpoint(
                         "ordering-inventory-reserved",
@@ -114,6 +135,15 @@ namespace Ordering.Infrastructure
                         {
                             endpoint.ConfigureConsumer<
                                 InventoryReservedIntegrationEventConsumer>(
+                                context);
+                        });
+
+
+                    cfg.ReceiveEndpoint(
+                        "ordering-order-saga",
+                        endpoint =>
+                        {
+                            endpoint.ConfigureSaga<OrderSagaState>(
                                 context);
                         });
 

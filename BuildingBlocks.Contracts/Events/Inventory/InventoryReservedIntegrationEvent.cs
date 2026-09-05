@@ -1,4 +1,5 @@
 using BuildingBlocks.Messaging;
+using System.Text.Json.Serialization;
 
 namespace BuildingBlocks.Contracts.Events.Inventory;
 
@@ -8,6 +9,9 @@ public sealed record InventoryReservedIntegrationEvent : IntegrationEvent
 
     public Guid ReservationId { get; init; }
 
+    public IReadOnlyCollection<Guid> ReservationIds { get; init; }
+        = Array.Empty<Guid>();
+
     public IReadOnlyCollection<InventoryReservedItem> Items { get; init; }
 
 
@@ -15,10 +19,24 @@ public sealed record InventoryReservedIntegrationEvent : IntegrationEvent
         Guid orderId,
         Guid reservationId,
         IReadOnlyCollection<InventoryReservedItem> items)
+        : this(
+            orderId,
+            new[] { reservationId },
+            items)
+    {
+    }
+
+
+    [JsonConstructor]
+    public InventoryReservedIntegrationEvent(
+        Guid orderId,
+        IReadOnlyCollection<Guid> reservationIds,
+        IReadOnlyCollection<InventoryReservedItem> items)
     {
         OrderId = orderId;
-        ReservationId = reservationId;
-        Items = items;
+        ReservationIds = reservationIds.Distinct().ToArray();
+        ReservationId = ReservationIds.FirstOrDefault();
+        Items = items.ToArray();
     }
 }
 

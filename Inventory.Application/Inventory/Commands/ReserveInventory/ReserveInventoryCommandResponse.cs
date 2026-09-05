@@ -5,6 +5,8 @@ public sealed record ReserveInventoryCommandResponse(
 
     Guid ReservationId,
 
+    IReadOnlyCollection<Guid> ReservationIds,
+
     Guid OrderId,
 
     int ReservedItemsCount,

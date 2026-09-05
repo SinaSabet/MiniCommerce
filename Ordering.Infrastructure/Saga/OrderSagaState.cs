@@ -30,6 +30,10 @@ public sealed class OrderSagaState
 
 
 
+    public List<Guid> ReservationIds { get; set; } = new();
+
+
+
     public bool PaymentCompleted { get; set; }
 
 
@@ -39,5 +43,13 @@ public sealed class OrderSagaState
 
 
     public DateTime? CompletedAt { get; set; }
+
+
+    public bool CompensationStarted { get; set; }
+
+    public bool InventoryReleased { get; set; }
+
+
+    public DateTime? FailedAt { get; set; }
 
 }

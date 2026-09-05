@@ -32,19 +32,40 @@ public static class DependencyInjection
         {
             x.AddConsumer<PaymentRequestedIntegrationEventConsumer>();
 
+            x.AddEntityFrameworkOutbox<PaymentDbContext>(o =>
+            {
+                o.UseSqlServer();
+                o.UseBusOutbox();
+            });
+
             x.UsingRabbitMq((context, cfg) =>
             {
                 var host = configuration["RabbitMQ:Host"] ?? "localhost";
+                var port = ushort.TryParse(configuration["RabbitMQ:Port"], out var configuredPort)
+                    ? configuredPort
+                    : (ushort)5672;
                 var username = configuration["RabbitMQ:Username"] ?? "guest";
                 var password = configuration["RabbitMQ:Password"] ?? "guest";
 
                 cfg.Host(
                     host,
+                    port,
+                    configuration["RabbitMQ:VirtualHost"] ?? "/",
                     h =>
                     {
                         h.Username(username);
                         h.Password(password);
                     });
+
+                cfg.UseMessageRetry(r =>
+                {
+                    r.Exponential(
+                        retryLimit: 5,
+                        minInterval: TimeSpan.FromSeconds(1),
+                        maxInterval: TimeSpan.FromSeconds(30),
+                        intervalDelta: TimeSpan.FromSeconds(5));
+                });
+
 
                 cfg.ConfigureEndpoints(context);
             });

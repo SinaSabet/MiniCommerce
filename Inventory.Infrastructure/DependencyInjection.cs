@@ -44,11 +44,23 @@ public static class DependencyInjection
         services.AddMassTransit(x =>
         {
             x.AddConsumer<ReserveInventoryRequestedIntegrationEventConsumer>();
+            x.AddConsumer<ReleaseInventoryRequestedIntegrationEventConsumer>();
+
+            x.AddEntityFrameworkOutbox<InventoryDbContext>(o =>
+            {
+                o.UseSqlServer();
+                o.UseBusOutbox();
+            });
 
             x.UsingRabbitMq((context, cfg) =>
             {
+                var port = ushort.TryParse(configuration["RabbitMQ:Port"], out var configuredPort)
+                    ? configuredPort
+                    : (ushort)5672;
+
                 cfg.Host(
                     configuration["RabbitMQ:Host"]!,
+                    port,
                     configuration["RabbitMQ:VirtualHost"] ?? "/",
                     h =>
                     {
@@ -58,6 +70,14 @@ public static class DependencyInjection
                         h.Password(
                             configuration["RabbitMQ:Password"]!);
                     });
+                cfg.UseMessageRetry(r =>
+                {
+                    r.Exponential(
+                        retryLimit: 5,
+                        minInterval: TimeSpan.FromSeconds(1),
+                        maxInterval: TimeSpan.FromSeconds(30),
+                        intervalDelta: TimeSpan.FromSeconds(5));
+                });
 
                 cfg.ConfigureEndpoints(context);
             });

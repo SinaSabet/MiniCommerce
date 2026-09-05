@@ -1,6 +1,8 @@
 ﻿using Inventory.Application.Interfaces;
 using Inventory.Domain.InventoryItems;
 using Inventory.Domain.Reservations;
+using BuildingBlocks.Contracts.Events.Inventory;
+using MassTransit;
 using MediatR;
 using Microsoft.Extensions.Logging;
 
@@ -19,6 +21,8 @@ public sealed class ReserveInventoryCommandHandler
 
     private readonly IUnitOfWork _unitOfWork;
 
+    private readonly IPublishEndpoint _publishEndpoint;
+
     private readonly ILogger<ReserveInventoryCommandHandler> _logger;
 
 
@@ -27,11 +31,13 @@ public sealed class ReserveInventoryCommandHandler
         IInventoryItemRepository inventoryRepository,
         IInventoryReservationRepository reservationRepository,
         IUnitOfWork unitOfWork,
+        IPublishEndpoint publishEndpoint,
         ILogger<ReserveInventoryCommandHandler> logger)
     {
         _inventoryRepository = inventoryRepository;
         _reservationRepository = reservationRepository;
         _unitOfWork = unitOfWork;
+        _publishEndpoint = publishEndpoint;
         _logger = logger;
     }
 
@@ -132,13 +138,36 @@ public sealed class ReserveInventoryCommandHandler
 
 
 
-        await _unitOfWork.SaveChangesAsync(
+        var firstReservation =
+            reservations.First();
+
+
+        var reservationIds =
+            reservations
+                .Select(x => x.Id)
+                .Distinct()
+                .ToList();
+
+
+        var reservedItems =
+            reservations
+                .Select(x =>
+                    new InventoryReservedItem(
+                        x.ProductId,
+                        x.Quantity))
+                .ToList();
+
+
+        await _publishEndpoint.Publish(
+            new InventoryReservedIntegrationEvent(
+                request.OrderId,
+                reservationIds,
+                reservedItems),
             cancellationToken);
 
 
-
-        var firstReservation =
-            reservations.First();
+        await _unitOfWork.SaveChangesAsync(
+            cancellationToken);
 
 
 
@@ -146,6 +175,10 @@ public sealed class ReserveInventoryCommandHandler
 
             ReservationId:
                 firstReservation.Id,
+
+
+            ReservationIds:
+                reservationIds,
 
 
             OrderId:

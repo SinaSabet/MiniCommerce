@@ -34,6 +34,10 @@ namespace Inventory.Infrastructure.Persistence
 
             modelBuilder.ApplyConfigurationsFromAssembly(
                 typeof(InventoryDbContext).Assembly);
+
+            modelBuilder.AddInboxStateEntity();
+            modelBuilder.AddOutboxMessageEntity();
+            modelBuilder.AddOutboxStateEntity();
         }
     }
 }

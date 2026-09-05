@@ -1,5 +1,6 @@
 ﻿using MassTransit.EntityFrameworkCoreIntegration;
 using Microsoft.EntityFrameworkCore;
+using MassTransit;
 
 namespace Ordering.Infrastructure.Saga;
 
@@ -20,5 +21,17 @@ public class OrderSagaDbContext
         {
             yield return new OrderSagaStateMap();
         }
+    }
+
+
+    protected override void OnModelCreating(
+        ModelBuilder modelBuilder)
+    {
+        base.OnModelCreating(modelBuilder);
+
+        modelBuilder.AddTransactionalOutboxEntities(
+            entity =>
+                entity.ToTable(
+                    $"Saga{entity.Metadata.GetDefaultTableName()}"));
     }
 }

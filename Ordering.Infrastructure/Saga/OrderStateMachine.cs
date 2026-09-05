@@ -21,6 +21,11 @@ public sealed class OrderStateMachine
 
     public State Failed { get; private set; } = default!;
 
+    public State Compensating { get; private set; } = default!;
+
+
+    public State Cancelled { get; private set; } = default!;
+
 
 
     public Event<OrderConfirmedIntegrationEvent> OrderConfirmed { get; private set; } = default!;
@@ -37,11 +42,13 @@ public sealed class OrderStateMachine
 
     public Event<PaymentFailedIntegrationEvent> PaymentFailed { get; private set; } = default!;
 
-
+    public Event<InventoryReleasedIntegrationEvent> InventoryReleased { get; private set; } = default!;
 
 
     public OrderStateMachine()
     {
+
+        InstanceState(x => x.CurrentState);
 
 
         Event(() => OrderConfirmed,
@@ -89,6 +96,15 @@ public sealed class OrderStateMachine
 
 
 
+        Event(() => InventoryReleased,
+            x =>
+            {
+                x.CorrelateById(
+                    context => context.Message.OrderId);
+            });
+
+
+
 
 
         Initially(
@@ -123,6 +139,14 @@ public sealed class OrderStateMachine
                     false;
 
 
+                context.Saga.CompensationStarted =
+                    false;
+
+
+                context.Saga.InventoryReleased =
+                    false;
+
+
                 context.Saga.PaymentCompleted =
                     false;
 
@@ -130,24 +154,17 @@ public sealed class OrderStateMachine
 
 
 
-            .PublishAsync(context =>
-                context.Init<ReserveInventoryRequestedIntegrationEvent>(
-                    new
-                    {
-
-                        OrderId =
-                            context.Message.OrderId,
-
-
-                        Items =
-                            context.Message.Items
-                            .Select(x =>
-                                new ReserveInventoryItem(
-                                    x.ProductId,
-                                    x.Quantity))
-                            .ToList()
-
-                    }))
+            .Publish(context =>
+                new ReserveInventoryRequestedIntegrationEvent
+                {
+                    OrderId = context.Message.OrderId,
+                    Items = context.Message.Items
+                        .Select(x =>
+                            new ReserveInventoryItem(
+                                x.ProductId,
+                                x.Quantity))
+                        .ToArray()
+                })
 
 
 
@@ -172,27 +189,21 @@ public sealed class OrderStateMachine
             .Then(context =>
             {
                 context.Saga.InventoryReserved = true;
+
+
+                context.Saga.ReservationIds =
+                    GetReservationIds(
+                        context.Message.ReservationIds,
+                        context.Message.ReservationId);
             })
 
 
 
-            .PublishAsync(context =>
-                context.Init<PaymentRequestedIntegrationEvent>(
-                    new
-                    {
-
-                        OrderId =
-                            context.Saga.OrderId,
-
-
-                        Amount =
-                            context.Saga.Amount,
-
-
-                        Currency =
-                            context.Saga.Currency
-
-                    }))
+            .Publish(context =>
+                new PaymentRequestedIntegrationEvent(
+                    context.Saga.OrderId,
+                    context.Saga.Amount,
+                    context.Saga.Currency))
 
 
 
@@ -261,22 +272,88 @@ public sealed class OrderStateMachine
 
 
 
-        DuringAny(
+        During(
+
+            AwaitingPayment,
 
             When(PaymentFailed)
 
 
             .Then(context =>
             {
+                context.Saga.CompensationStarted = true;
+
+
+                context.Saga.FailedAt =
+                    DateTime.UtcNow;
+            })
+
+
+            .Publish(context =>
+                new ReleaseInventoryRequestedIntegrationEvent
+                {
+                    OrderId = context.Saga.OrderId,
+                    ReservationIds = context.Saga.ReservationIds.ToArray(),
+                    ReservationId = context.Saga.ReservationIds.FirstOrDefault()
+                })
+
+
+            .TransitionTo(Compensating)
+
+        );
+
+
+
+
+
+        During(
+
+            Compensating,
+
+            When(InventoryReleased)
+
+
+            .Then(context =>
+            {
+                var releasedReservationIds =
+                    GetReservationIds(
+                        context.Message.ReservationIds,
+                        context.Message.ReservationId);
+
+
+                if (context.Saga.ReservationIds.Any(
+                    reservationId =>
+                        !releasedReservationIds.Contains(reservationId)))
+                {
+                    throw new InvalidOperationException(
+                        "Inventory release confirmation does not contain all reservations for the order.");
+                }
+
+
+                context.Saga.InventoryReleased = true;
+
+
                 context.Saga.CompletedAt =
                     DateTime.UtcNow;
             })
 
 
-            .TransitionTo(Failed)
+            .TransitionTo(Cancelled)
 
         );
 
+    }
+
+
+    private static List<Guid> GetReservationIds(
+        IReadOnlyCollection<Guid> reservationIds,
+        Guid reservationId)
+    {
+        return reservationIds.Count > 0
+            ? reservationIds.Distinct().ToList()
+            : reservationId == Guid.Empty
+                ? new List<Guid>()
+                : new List<Guid> { reservationId };
     }
 
 }

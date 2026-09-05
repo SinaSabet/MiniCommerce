@@ -39,8 +39,13 @@ public sealed class InventoryReservationRepository
             cancellationToken);
     }
 
-    public Task<InventoryReservation?> GetByIdAsync(Guid reservationId, CancellationToken cancellationToken = default)
+    public Task<InventoryReservation?> GetByIdAsync(
+        Guid reservationId,
+        CancellationToken cancellationToken = default)
     {
-        throw new NotImplementedException();
+        return _context.InventoryReservations
+            .SingleOrDefaultAsync(
+                x => x.Id == reservationId,
+                cancellationToken);
     }
 }
