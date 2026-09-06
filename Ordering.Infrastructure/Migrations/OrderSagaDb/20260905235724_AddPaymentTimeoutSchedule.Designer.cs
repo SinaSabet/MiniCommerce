@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Ordering.Infrastructure.Saga;
 
@@ -11,9 +12,11 @@ using Ordering.Infrastructure.Saga;
 namespace Ordering.Infrastructure.Migrations.OrderSagaDb
 {
     [DbContext(typeof(OrderSagaDbContext))]
-    partial class OrderSagaDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260905235724_AddPaymentTimeoutSchedule")]
+    partial class AddPaymentTimeoutSchedule
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

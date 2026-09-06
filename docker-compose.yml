@@ -128,7 +128,7 @@ services:
 
   rabbitmq:
 
-    image: rabbitmq:3-management
+    image: masstransit/rabbitmq
 
     container_name: minicomm-rabbitmq
 

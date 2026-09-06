@@ -54,6 +54,8 @@ public sealed class MiniCommerceSystem : IAsyncDisposable
 
     public static async Task<MiniCommerceSystem> StartAsync(
         IntegrationContainersFixture containers,
+        bool startInventory = true,
+        bool startPayment = true,
         CancellationToken cancellationToken = default)
     {
         var suffix = Guid.NewGuid().ToString("N");
@@ -69,23 +71,37 @@ public sealed class MiniCommerceSystem : IAsyncDisposable
         await system.StartProbeAsync(cancellationToken);
 
         system._orderingHost = system.CreateOrderingHost();
-        system._inventoryHost = system.CreateInventoryHost();
-        system._paymentHost = system.CreatePaymentHost();
+        if (startInventory)
+            system._inventoryHost = system.CreateInventoryHost();
+        if (startPayment)
+            system._paymentHost = system.CreatePaymentHost();
 
         await system._orderingHost.StartAsync(cancellationToken);
-        await system._inventoryHost.StartAsync(cancellationToken);
-        await system._paymentHost.StartAsync(cancellationToken);
+        if (system._inventoryHost is not null)
+            await system._inventoryHost.StartAsync(cancellationToken);
+        if (system._paymentHost is not null)
+            await system._paymentHost.StartAsync(cancellationToken);
 
         return system;
     }
 
     public async Task<(Guid OrderId, Guid[] ProductIds)> SeedAndConfirmOrderAsync(
+        params (int Stock, int Quantity, decimal UnitPrice)[] lines) =>
+        await CreateAndConfirmOrderAsync(true, lines);
+
+    public async Task<(Guid OrderId, Guid[] ProductIds)> ConfirmOrderWithoutInventoryAsync(
+        params (int Stock, int Quantity, decimal UnitPrice)[] lines) =>
+        await CreateAndConfirmOrderAsync(false, lines);
+
+    private async Task<(Guid OrderId, Guid[] ProductIds)> CreateAndConfirmOrderAsync(
+        bool seedInventory,
         params (int Stock, int Quantity, decimal UnitPrice)[] lines)
     {
         var productIds = lines.Select(_ => Guid.NewGuid()).ToArray();
 
-        await using (var scope = _inventoryHost!.Services.CreateAsyncScope())
+        if (seedInventory)
         {
+            await using var scope = _inventoryHost!.Services.CreateAsyncScope();
             var sender = scope.ServiceProvider.GetRequiredService<ISender>();
             for (var index = 0; index < lines.Length; index++)
                 await sender.Send(new AddStockCommand(productIds[index], lines[index].Stock));
@@ -146,6 +162,30 @@ public sealed class MiniCommerceSystem : IAsyncDisposable
     public Task PublishAsync<T>(T message)
         where T : class =>
         _orderingHost!.Services.GetRequiredService<IBus>().Publish(message);
+
+    public Task PublishFaultAsync<T>(T message)
+        where T : class =>
+        _orderingHost!.Services.GetRequiredService<IBus>().Publish<Fault<T>>(
+            new
+            {
+                FaultId = NewId.NextGuid(),
+                FaultedMessageId = NewId.NextGuid(),
+                Timestamp = DateTime.UtcNow,
+                Exceptions = Array.Empty<ExceptionInfo>(),
+                Host = new
+                {
+                    MachineName = "integration-tests",
+                    ProcessName = "dotnet-test",
+                    ProcessId = Environment.ProcessId,
+                    Assembly = typeof(MiniCommerceSystem).Assembly.GetName().Name,
+                    AssemblyVersion = typeof(MiniCommerceSystem).Assembly.GetName().Version?.ToString(),
+                    FrameworkVersion = Environment.Version.ToString(),
+                    MassTransitVersion = typeof(IBus).Assembly.GetName().Version?.ToString(),
+                    OperatingSystemVersion = Environment.OSVersion.VersionString
+                },
+                FaultMessageTypes = new[] { MessageUrn.ForType<T>().ToString() },
+                Message = message
+            });
 
     public Task<OrderSagaState> WaitForSagaStateAsync(
         Guid orderId,

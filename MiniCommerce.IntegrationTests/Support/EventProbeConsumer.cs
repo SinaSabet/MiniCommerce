@@ -13,7 +13,9 @@ public sealed class EventProbeConsumer :
     IConsumer<PaymentCompletedIntegrationEvent>,
     IConsumer<PaymentFailedIntegrationEvent>,
     IConsumer<ReleaseInventoryRequestedIntegrationEvent>,
-    IConsumer<InventoryReleasedIntegrationEvent>
+    IConsumer<InventoryReleasedIntegrationEvent>,
+    IConsumer<Fault<PaymentRequestedIntegrationEvent>>,
+    IConsumer<Fault<ReserveInventoryRequestedIntegrationEvent>>
 {
     private readonly EventProbeStore _store;
 
@@ -35,6 +37,10 @@ public sealed class EventProbeConsumer :
     public Task Consume(ConsumeContext<ReleaseInventoryRequestedIntegrationEvent> context) => Record(context.Message);
 
     public Task Consume(ConsumeContext<InventoryReleasedIntegrationEvent> context) => Record(context.Message);
+
+    public Task Consume(ConsumeContext<Fault<PaymentRequestedIntegrationEvent>> context) => Record(context.Message);
+
+    public Task Consume(ConsumeContext<Fault<ReserveInventoryRequestedIntegrationEvent>> context) => Record(context.Message);
 
     private Task Record<T>(T message) where T : class
     {

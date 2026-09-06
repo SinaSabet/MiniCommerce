@@ -9,6 +9,9 @@ namespace Ordering.Infrastructure.Saga;
 public sealed class OrderStateMachine
     : MassTransitStateMachine<OrderSagaState>
 {
+    private static readonly TimeSpan PaymentTimeoutDelay =
+        TimeSpan.FromMinutes(5);
+
 
     public State AwaitingInventory { get; private set; } = default!;
 
@@ -44,11 +47,27 @@ public sealed class OrderStateMachine
 
     public Event<InventoryReleasedIntegrationEvent> InventoryReleased { get; private set; } = default!;
 
+    public Event<Fault<PaymentRequestedIntegrationEvent>> PaymentFaulted { get; private set; } = default!;
+
+    public Event<Fault<ReserveInventoryRequestedIntegrationEvent>> InventoryFaulted { get; private set; } = default!;
+
+    public Schedule<OrderSagaState, PaymentTimeoutExpired> PaymentTimeout { get; private set; } = default!;
+
 
     public OrderStateMachine()
     {
 
         InstanceState(x => x.CurrentState);
+
+
+        Schedule(() => PaymentTimeout,
+            x => x.PaymentTimeoutTokenId,
+            x =>
+            {
+                x.Delay = PaymentTimeoutDelay;
+                x.Received = e => e.CorrelateById(
+                    context => context.Message.OrderId);
+            });
 
 
         Event(() => OrderConfirmed,
@@ -104,6 +123,21 @@ public sealed class OrderStateMachine
             });
 
 
+        Event(() => PaymentFaulted,
+        x =>
+        {
+            x.CorrelateById(
+                context =>
+                    context.Message.Message.OrderId);
+        });
+
+        Event(() => InventoryFaulted,
+        x =>
+        {
+            x.CorrelateById(
+                context =>
+                    context.Message.Message.OrderId);
+        });
 
 
 
@@ -175,12 +209,58 @@ public sealed class OrderStateMachine
 
 
 
+          During(
+
+            AwaitingPayment,
+
+
+            When(PaymentFaulted)
+
+            .Then(context =>
+            {
+                context.Saga.CompensationStarted = true;
+
+                context.Saga.FailedAt =
+                    DateTime.UtcNow;
+            })
+
+
+            .Publish(context =>
+                new ReleaseInventoryRequestedIntegrationEvent
+                {
+                    OrderId = context.Saga.OrderId,
+
+                    ReservationIds =
+                        context.Saga.ReservationIds.ToArray(),
+
+                    ReservationId =
+                        context.Saga.ReservationIds.FirstOrDefault()
+                })
+
+
+            .TransitionTo(Compensating)
+
+        );
+
 
 
 
         During(
 
             AwaitingInventory,
+
+
+            When(InventoryFaulted)
+
+
+            .Then(context =>
+            {
+                context.Saga.FailedAt =
+                    DateTime.UtcNow;
+            })
+
+
+            .TransitionTo(Failed),
 
 
             When(InventoryReserved)
@@ -196,6 +276,14 @@ public sealed class OrderStateMachine
                         context.Message.ReservationIds,
                         context.Message.ReservationId);
             })
+
+
+            .Schedule(PaymentTimeout,
+                context => context.Init<PaymentTimeoutExpired>(
+                    new
+                    {
+                        OrderId = context.Saga.OrderId
+                    }))
 
 
 
@@ -224,6 +312,9 @@ public sealed class OrderStateMachine
 
 
             When(PaymentCompleted)
+
+
+            .Unschedule(PaymentTimeout)
 
 
             .Then(context =>
@@ -277,6 +368,39 @@ public sealed class OrderStateMachine
             AwaitingPayment,
 
             When(PaymentFailed)
+
+
+            .Then(context =>
+            {
+                context.Saga.CompensationStarted = true;
+
+
+                context.Saga.FailedAt =
+                    DateTime.UtcNow;
+            })
+
+
+            .Publish(context =>
+                new ReleaseInventoryRequestedIntegrationEvent
+                {
+                    OrderId = context.Saga.OrderId,
+                    ReservationIds = context.Saga.ReservationIds.ToArray(),
+                    ReservationId = context.Saga.ReservationIds.FirstOrDefault()
+                })
+
+
+            .TransitionTo(Compensating)
+
+        );
+
+
+
+
+        During(
+
+            AwaitingPayment,
+
+            When(PaymentTimeout.Received)
 
 
             .Then(context =>

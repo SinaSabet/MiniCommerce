@@ -37,6 +37,9 @@ public sealed class OrderSagaState
     public bool PaymentCompleted { get; set; }
 
 
+    public Guid? PaymentTimeoutTokenId { get; set; }
+
+
 
     public DateTime CreatedAt { get; set; }
 
