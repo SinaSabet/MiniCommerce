@@ -31,6 +31,7 @@ public static class DependencyInjection
         services.AddMassTransit(x =>
         {
             x.AddConsumer<PaymentRequestedIntegrationEventConsumer>();
+            x.AddConsumer<RefundPaymentRequestedIntegrationEventConsumer>();
 
             x.AddEntityFrameworkOutbox<PaymentDbContext>(o =>
             {

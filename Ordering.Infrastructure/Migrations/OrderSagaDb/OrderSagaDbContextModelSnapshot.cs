@@ -234,6 +234,12 @@ namespace Ordering.Infrastructure.Migrations.OrderSagaDb
                     b.Property<bool>("PaymentCompleted")
                         .HasColumnType("bit");
 
+                    b.Property<Guid?>("PaymentId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("PaymentRefunded")
+                        .HasColumnType("bit");
+
                     b.Property<Guid?>("PaymentTimeoutTokenId")
                         .HasColumnType("uniqueidentifier");
 

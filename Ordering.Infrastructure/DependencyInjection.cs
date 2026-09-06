@@ -175,6 +175,16 @@ public static class DependencyInjection
                             context);
                     });
 
+
+
+                cfg.ReceiveEndpoint(
+                    "ordering-order-saga",
+                    endpoint =>
+                    {
+                        endpoint.ConfigureSaga<OrderSagaState>(
+                            context);
+                    });
+
             });
 
         });

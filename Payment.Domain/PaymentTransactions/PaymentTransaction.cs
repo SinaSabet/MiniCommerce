@@ -86,4 +86,36 @@ public class PaymentTransaction : AggregateRoot<Guid>
         AddDomainEvent(
             new PaymentFailedDomainEvent(Id, OrderId, reason));
     }
+
+
+    public bool Refund(decimal amount)
+    {
+        if (amount != Amount.Amount)
+            throw new DomainException(
+                $"Refund amount {amount} does not match payment amount {Amount.Amount}");
+
+        if (Status == PaymentStatus.Refunded)
+            return false;
+
+        if (Status != PaymentStatus.Completed)
+            throw new DomainException(
+                $"Cannot refund payment with status {Status}");
+
+        Status = PaymentStatus.Refunded;
+
+        AddDomainEvent(
+            new PaymentRefundedDomainEvent(Id, OrderId));
+
+        return true;
+    }
+
+
+    public void RecordRefundFailure(string reason)
+    {
+        if (string.IsNullOrWhiteSpace(reason))
+            throw new DomainException("Refund failure reason is required");
+
+        AddDomainEvent(
+            new PaymentRefundFailedDomainEvent(Id, OrderId, reason));
+    }
 }

@@ -29,6 +29,9 @@ public class PaymentTransactionConfiguration : IEntityTypeConfiguration<PaymentT
         builder.Property(x => x.CompletedAt)
             .IsRequired(false);
 
+        builder.Property<byte[]>("RowVersion")
+            .IsRowVersion();
+
         // Configure Money value object
         builder.OwnsOne(
             x => x.Amount,

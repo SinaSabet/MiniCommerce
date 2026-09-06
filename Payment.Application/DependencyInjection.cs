@@ -40,6 +40,14 @@ public static class DependencyInjection
             IDomainEventHandler<PaymentFailedDomainEvent>,
             PaymentFailedEventHandler>();
 
+        services.AddScoped<
+            IDomainEventHandler<PaymentRefundedDomainEvent>,
+            PaymentRefundedEventHandler>();
+
+        services.AddScoped<
+            IDomainEventHandler<PaymentRefundFailedDomainEvent>,
+            PaymentRefundFailedEventHandler>();
+
         return services;
     }
 }

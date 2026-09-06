@@ -16,6 +16,7 @@ public sealed class OrderSagaState
 
     public Guid OrderId { get; set; }
 
+    public Guid? PaymentId { get; set; }
 
 
     public decimal Amount { get; set; }
@@ -35,6 +36,8 @@ public sealed class OrderSagaState
 
 
     public bool PaymentCompleted { get; set; }
+
+    public bool PaymentRefunded { get; set; }
 
 
     public Guid? PaymentTimeoutTokenId { get; set; }

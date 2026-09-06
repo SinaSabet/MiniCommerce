@@ -126,6 +126,55 @@ services:
 
 
 
+  shipping-db:
+
+    image: mcr.microsoft.com/mssql/server:2022-latest
+
+    container_name: shipping-sqlserver
+
+    restart: unless-stopped
+
+
+    environment:
+
+      ACCEPT_EULA: "Y"
+
+      MSSQL_SA_PASSWORD: ${MSSQL_PASSWORD}
+
+
+    ports:
+
+      - "14334:1433"
+
+
+    volumes:
+
+      - shipping-db-data:/var/opt/mssql
+
+
+    healthcheck:
+
+      test:
+        [
+          "CMD-SHELL",
+          "timeout 5 bash -c '</dev/tcp/127.0.0.1/1433'"
+        ]
+
+      interval: 10s
+
+      timeout: 5s
+
+      retries: 20
+
+
+    networks:
+
+      - minicomm-network
+
+
+
+
+
   rabbitmq:
 
     image: masstransit/rabbitmq
@@ -297,11 +346,70 @@ services:
 
 
 
+  shipping-api:
+
+    build:
+
+      context: .
+
+      dockerfile: Shipping.API/Dockerfile
+
+    image: minicommerce-shipping
+
+    container_name: shipping-api
+
+    restart: unless-stopped
+
+
+    ports:
+
+      - "8083:8080"
+
+
+    environment:
+
+      ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT}
+
+
+      ConnectionStrings__ShippingConnection: "Server=shipping-db;Database=MiniCommerce.Shipping;User Id=sa;Password=${MSSQL_PASSWORD};TrustServerCertificate=True"
+
+
+      RabbitMQ__Host: rabbitmq
+
+      RabbitMQ__VirtualHost: /
+
+      RabbitMQ__Username: ${RABBIT_USERNAME}
+
+      RabbitMQ__Password: ${RABBIT_PASSWORD}
+
+
+    depends_on:
+
+      shipping-db:
+
+        condition: service_healthy
+
+
+      rabbitmq:
+
+        condition: service_healthy
+
+
+    networks:
+
+      - minicomm-network
+
+
+
+
+
 volumes:
 
   ordering-db-data:
 
   inventory-db-data:
+
+  shipping-db-data:
 
 
 
