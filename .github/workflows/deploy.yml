@@ -1,0 +1,132 @@
+name: Deploy Production
+
+on:
+  workflow_run:
+    workflows:
+      - Docker Build and Push
+    types:
+      - completed
+    branches:
+      - main
+
+permissions:
+  contents: read
+  packages: read
+
+concurrency:
+  group: production-deployment
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+      - name: Checkout deployment revision
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+
+      - name: Configure SSH
+        env:
+          SERVER_SSH_KEY: ${{ secrets.SERVER_SSH_KEY }}
+          SERVER_SSH_KNOWN_HOSTS: ${{ secrets.SERVER_SSH_KNOWN_HOSTS }}
+        run: |
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$SERVER_SSH_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          printf '%s\n' "$SERVER_SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+
+      - name: Login production server to GHCR
+        env:
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GHCR_USER: ${{ github.actor }}
+          SSH_TARGET: ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}
+        run: |
+          printf '%s' "$GHCR_TOKEN" |
+            ssh "$SSH_TARGET" "docker login ghcr.io --username '$GHCR_USER' --password-stdin"
+
+      - name: Sync deployment manifests
+        env:
+          SSH_TARGET: ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}
+        run: |
+          tar -czf - \
+            docker-compose.prod.yml \
+            otel-collector-config.yaml \
+            prometheus.yml \
+            Infrastructure/Nginx \
+            Infrastructure/Database/init |
+            ssh "$SSH_TARGET" "mkdir -p ~/MiniCommerce && tar -xzf - -C ~/MiniCommerce"
+
+      - name: Pull and deploy immutable revision
+        env:
+          DEPLOY_SHA: ${{ github.event.workflow_run.head_sha }}
+          GHCR_OWNER: ${{ github.repository_owner }}
+          SSH_TARGET: ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}
+        run: |
+          GHCR_OWNER=$(echo "$GHCR_OWNER" | tr '[:upper:]' '[:lower:]')
+
+          ssh "$SSH_TARGET" bash -s -- "$DEPLOY_SHA" "$GHCR_OWNER" <<'REMOTE'
+          set -euo pipefail
+
+          DEPLOY_SHA="$1"
+          GHCR_OWNER="$2"
+          COMPOSE_FILE="docker-compose.prod.yml"
+          ENV_FILE=".env.production"
+
+          cd ~/MiniCommerce
+
+          export GHCR_OWNER
+          export IMAGE_TAG="$DEPLOY_SHA"
+
+          docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" config --quiet
+          docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" pull
+          docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" up -d --remove-orphans
+          docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" ps
+          REMOTE
+
+      - name: Verify production services
+        env:
+          DEPLOY_SHA: ${{ github.event.workflow_run.head_sha }}
+          GHCR_OWNER: ${{ github.repository_owner }}
+          SSH_TARGET: ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}
+        run: |
+          GHCR_OWNER=$(echo "$GHCR_OWNER" | tr '[:upper:]' '[:lower:]')
+
+          ssh "$SSH_TARGET" bash -s -- "$DEPLOY_SHA" "$GHCR_OWNER" <<'REMOTE'
+          set -euo pipefail
+
+          export IMAGE_TAG="$1"
+          export GHCR_OWNER="$2"
+          COMPOSE="docker compose --env-file .env.production -f docker-compose.prod.yml"
+
+          cd ~/MiniCommerce
+
+          for service in ordering-api inventory-api payment-api shipping-api fault-monitoring-worker rabbitmq otel-collector jaeger prometheus grafana; do
+            container_id=$($COMPOSE ps -q "$service")
+            test -n "$container_id"
+            test "$(docker inspect --format '{{.State.Running}}' "$container_id")" = "true"
+          done
+
+          docker exec minicomm-rabbitmq rabbitmq-diagnostics -q ping
+
+          curl --fail --silent --show-error --retry 12 --retry-all-errors --retry-delay 5 http://localhost:8080/health/ready
+          curl --fail --silent --show-error --retry 12 --retry-all-errors --retry-delay 5 http://localhost:8081/health/ready
+          curl --fail --silent --show-error --retry 12 --retry-all-errors --retry-delay 5 http://localhost:8082/health/ready
+          curl --fail --silent --show-error --retry 12 --retry-all-errors --retry-delay 5 http://localhost:8083/health/ready
+          curl --fail --silent --show-error http://localhost:9090/-/ready
+          curl --fail --silent --show-error http://localhost:16686/
+          REMOTE
+
+      - name: Show deployment diagnostics on failure
+        if: failure()
+        env:
+          DEPLOY_SHA: ${{ github.event.workflow_run.head_sha }}
+          GHCR_OWNER: ${{ github.repository_owner }}
+          SSH_TARGET: ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}
+        run: |
+          GHCR_OWNER=$(echo "$GHCR_OWNER" | tr '[:upper:]' '[:lower:]')
+          ssh "$SSH_TARGET" "cd ~/MiniCommerce && GHCR_OWNER='$GHCR_OWNER' IMAGE_TAG='$DEPLOY_SHA' docker compose --env-file .env.production -f docker-compose.prod.yml ps && GHCR_OWNER='$GHCR_OWNER' IMAGE_TAG='$DEPLOY_SHA' docker compose --env-file .env.production -f docker-compose.prod.yml logs --tail=100"

@@ -1,0 +1,423 @@
+services:
+  nginx:
+    image: nginx:latest
+    container_name: minicomm-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    volumes:
+      - ./Infrastructure/Nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - ordering-api
+      - inventory-api
+    networks:
+      - minicomm-network
+
+  ordering-db:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: ordering-sqlserver
+    restart: unless-stopped
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: ${MSSQL_PASSWORD:?MSSQL_PASSWORD is required}
+    ports:
+      - "14331:1433"
+    volumes:
+      - ordering-db-data:/var/opt/mssql
+    healthcheck:
+      test: ["CMD-SHELL", "timeout 5 bash -c '</dev/tcp/127.0.0.1/1433'"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+    networks:
+      - minicomm-network
+
+  ordering-db-init:
+    image: mcr.microsoft.com/mssql-tools:latest
+    container_name: ordering-db-init
+    environment:
+      ACCEPT_EULA: "Y"
+    command:
+      - /opt/mssql-tools/bin/sqlcmd
+      - -S
+      - ordering-db,1433
+      - -U
+      - sa
+      - -P
+      - ${MSSQL_PASSWORD:?MSSQL_PASSWORD is required}
+      - -C
+      - -b
+      - -i
+      - /scripts/ordering.sql
+      - -i
+      - /scripts/ordersaga.sql
+    volumes:
+      - ./Infrastructure/Database/init/ordering:/scripts:ro
+    depends_on:
+      ordering-db:
+        condition: service_healthy
+    networks:
+      - minicomm-network
+
+  inventory-db:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: inventory-sqlserver
+    restart: unless-stopped
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: ${MSSQL_PASSWORD:?MSSQL_PASSWORD is required}
+    ports:
+      - "14332:1433"
+    volumes:
+      - inventory-db-data:/var/opt/mssql
+    healthcheck:
+      test: ["CMD-SHELL", "timeout 5 bash -c '</dev/tcp/127.0.0.1/1433'"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+    networks:
+      - minicomm-network
+
+  inventory-db-init:
+    image: mcr.microsoft.com/mssql-tools:latest
+    container_name: inventory-db-init
+    environment:
+      ACCEPT_EULA: "Y"
+    command:
+      - /opt/mssql-tools/bin/sqlcmd
+      - -S
+      - inventory-db,1433
+      - -U
+      - sa
+      - -P
+      - ${MSSQL_PASSWORD:?MSSQL_PASSWORD is required}
+      - -C
+      - -b
+      - -i
+      - /scripts/inventory.sql
+    volumes:
+      - ./Infrastructure/Database/init/inventory:/scripts:ro
+    depends_on:
+      inventory-db:
+        condition: service_healthy
+    networks:
+      - minicomm-network
+
+  payment-db:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: payment-sqlserver
+    restart: unless-stopped
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: ${MSSQL_PASSWORD:?MSSQL_PASSWORD is required}
+    ports:
+      - "14333:1433"
+    volumes:
+      - payment-db-data:/var/opt/mssql
+    healthcheck:
+      test: ["CMD-SHELL", "timeout 5 bash -c '</dev/tcp/127.0.0.1/1433'"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+    networks:
+      - minicomm-network
+
+  payment-db-init:
+    image: mcr.microsoft.com/mssql-tools:latest
+    container_name: payment-db-init
+    environment:
+      ACCEPT_EULA: "Y"
+    command:
+      - /opt/mssql-tools/bin/sqlcmd
+      - -S
+      - payment-db,1433
+      - -U
+      - sa
+      - -P
+      - ${MSSQL_PASSWORD:?MSSQL_PASSWORD is required}
+      - -C
+      - -b
+      - -i
+      - /scripts/payment.sql
+    volumes:
+      - ./Infrastructure/Database/init/payment:/scripts:ro
+    depends_on:
+      payment-db:
+        condition: service_healthy
+    networks:
+      - minicomm-network
+
+  shipping-db:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: shipping-sqlserver
+    restart: unless-stopped
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: ${MSSQL_PASSWORD:?MSSQL_PASSWORD is required}
+    ports:
+      - "14334:1433"
+    volumes:
+      - shipping-db-data:/var/opt/mssql
+    healthcheck:
+      test: ["CMD-SHELL", "timeout 5 bash -c '</dev/tcp/127.0.0.1/1433'"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+    networks:
+      - minicomm-network
+
+  shipping-db-init:
+    image: mcr.microsoft.com/mssql-tools:latest
+    container_name: shipping-db-init
+    environment:
+      ACCEPT_EULA: "Y"
+    command:
+      - /opt/mssql-tools/bin/sqlcmd
+      - -S
+      - shipping-db,1433
+      - -U
+      - sa
+      - -P
+      - ${MSSQL_PASSWORD:?MSSQL_PASSWORD is required}
+      - -C
+      - -b
+      - -i
+      - /scripts/shipping.sql
+    volumes:
+      - ./Infrastructure/Database/init/shipping:/scripts:ro
+    depends_on:
+      shipping-db:
+        condition: service_healthy
+    networks:
+      - minicomm-network
+
+  database-migrator:
+    image: ghcr.io/${GHCR_OWNER:?GHCR_OWNER is required}/minicommerce-database-migrator:${IMAGE_TAG:-latest}
+    container_name: minicomm-database-migrator
+    environment:
+      ConnectionStrings__OrderingConnection: "Server=ordering-db;Database=MiniCommerce.Ordering;User Id=sa;Password=${MSSQL_PASSWORD};TrustServerCertificate=True"
+      ConnectionStrings__OrderSagaConnection: "Server=ordering-db;Database=MiniCommerce.OrderSaga;User Id=sa;Password=${MSSQL_PASSWORD};TrustServerCertificate=True"
+      ConnectionStrings__InventoryConnection: "Server=inventory-db;Database=MiniCommerce.Inventory;User Id=sa;Password=${MSSQL_PASSWORD};TrustServerCertificate=True"
+      ConnectionStrings__PaymentConnection: "Server=payment-db;Database=MiniCommerce.Payment;User Id=sa;Password=${MSSQL_PASSWORD};TrustServerCertificate=True"
+      ConnectionStrings__ShippingConnection: "Server=shipping-db;Database=MiniCommerce.Shipping;User Id=sa;Password=${MSSQL_PASSWORD};TrustServerCertificate=True"
+    depends_on:
+      ordering-db-init:
+        condition: service_completed_successfully
+      inventory-db-init:
+        condition: service_completed_successfully
+      payment-db-init:
+        condition: service_completed_successfully
+      shipping-db-init:
+        condition: service_completed_successfully
+    networks:
+      - minicomm-network
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: minicomm-rabbitmq
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBIT_USERNAME:?RABBIT_USERNAME is required}
+      RABBITMQ_DEFAULT_PASS: ${RABBIT_PASSWORD:?RABBIT_PASSWORD is required}
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - minicomm-network
+
+  redis:
+    image: redis:7
+    container_name: minicomm-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    networks:
+      - minicomm-network
+
+  ordering-api:
+    image: ghcr.io/${GHCR_OWNER:?GHCR_OWNER is required}/minicommerce-ordering-api:${IMAGE_TAG:-latest}
+    container_name: ordering-api
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Production}
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+      ConnectionStrings__OrderingConnection: "Server=ordering-db;Database=MiniCommerce.Ordering;User Id=sa;Password=${MSSQL_PASSWORD};TrustServerCertificate=True"
+      RabbitMQ__Host: rabbitmq
+      RabbitMQ__VirtualHost: /
+      RabbitMQ__Username: ${RABBIT_USERNAME}
+      RabbitMQ__Password: ${RABBIT_PASSWORD}
+    depends_on:
+      ordering-db-init:
+        condition: service_completed_successfully
+      rabbitmq:
+        condition: service_healthy
+      database-migrator:
+        condition: service_completed_successfully
+    networks:
+      - minicomm-network
+
+  inventory-api:
+    image: ghcr.io/${GHCR_OWNER:?GHCR_OWNER is required}/minicommerce-inventory-api:${IMAGE_TAG:-latest}
+    container_name: inventory-api
+    restart: unless-stopped
+    ports:
+      - "8081:8080"
+    environment:
+      ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Production}
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+      ConnectionStrings__InventoryConnection: "Server=inventory-db;Database=MiniCommerce.Inventory;User Id=sa;Password=${MSSQL_PASSWORD};TrustServerCertificate=True"
+      RabbitMQ__Host: rabbitmq
+      RabbitMQ__VirtualHost: /
+      RabbitMQ__Username: ${RABBIT_USERNAME}
+      RabbitMQ__Password: ${RABBIT_PASSWORD}
+    depends_on:
+      inventory-db-init:
+        condition: service_completed_successfully
+      rabbitmq:
+        condition: service_healthy
+      database-migrator:
+        condition: service_completed_successfully
+    networks:
+      - minicomm-network
+
+  payment-api:
+    image: ghcr.io/${GHCR_OWNER:?GHCR_OWNER is required}/minicommerce-payment-api:${IMAGE_TAG:-latest}
+    container_name: payment-api
+    restart: unless-stopped
+    ports:
+      - "8082:8080"
+    environment:
+      ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Production}
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+      ConnectionStrings__PaymentConnection: "Server=payment-db;Database=MiniCommerce.Payment;User Id=sa;Password=${MSSQL_PASSWORD};TrustServerCertificate=True"
+      RabbitMQ__Host: rabbitmq
+      RabbitMQ__VirtualHost: /
+      RabbitMQ__Username: ${RABBIT_USERNAME}
+      RabbitMQ__Password: ${RABBIT_PASSWORD}
+    depends_on:
+      payment-db-init:
+        condition: service_completed_successfully
+      rabbitmq:
+        condition: service_healthy
+      database-migrator:
+        condition: service_completed_successfully
+    networks:
+      - minicomm-network
+
+  shipping-api:
+    image: ghcr.io/${GHCR_OWNER:?GHCR_OWNER is required}/minicommerce-shipping-api:${IMAGE_TAG:-latest}
+    container_name: minicomm-shipping-api
+    restart: unless-stopped
+    ports:
+      - "8083:8080"
+    environment:
+      ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Production}
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+      ConnectionStrings__ShippingConnection: "Server=shipping-db;Database=MiniCommerce.Shipping;User Id=sa;Password=${MSSQL_PASSWORD};TrustServerCertificate=True"
+      RabbitMQ__Host: rabbitmq
+      RabbitMQ__VirtualHost: /
+      RabbitMQ__Username: ${RABBIT_USERNAME}
+      RabbitMQ__Password: ${RABBIT_PASSWORD}
+    depends_on:
+      shipping-db-init:
+        condition: service_completed_successfully
+      rabbitmq:
+        condition: service_healthy
+      database-migrator:
+        condition: service_completed_successfully
+    networks:
+      - minicomm-network
+
+  fault-monitoring-worker:
+    image: ghcr.io/${GHCR_OWNER:?GHCR_OWNER is required}/minicommerce-fault-monitoring-worker:${IMAGE_TAG:-latest}
+    container_name: minicomm-fault-monitoring-worker
+    restart: unless-stopped
+    environment:
+      DOTNET_ENVIRONMENT: ${DOTNET_ENVIRONMENT:-Production}
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+      RabbitMQ__Host: rabbitmq
+      RabbitMQ__VirtualHost: /
+      RabbitMQ__Username: ${RABBIT_USERNAME}
+      RabbitMQ__Password: ${RABBIT_PASSWORD}
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - minicomm-network
+
+  jaeger:
+    image: jaegertracing/all-in-one
+    container_name: minicomm-jaeger
+    restart: unless-stopped
+    environment:
+      COLLECTOR_OTLP_ENABLED: "true"
+    ports:
+      - "16686:16686"
+    networks:
+      - minicomm-network
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib
+    container_name: minicomm-otel-collector
+    restart: unless-stopped
+    command:
+      - "--config=/etc/otelcol-contrib/config.yaml"
+    volumes:
+      - ./otel-collector-config.yaml:/etc/otelcol-contrib/config.yaml:ro
+    ports:
+      - "4317:4317"
+      - "4318:4318"
+      - "8889:8889"
+    depends_on:
+      - jaeger
+    networks:
+      - minicomm-network
+
+  prometheus:
+    image: prom/prometheus:v3.0.0
+    container_name: minicomm-prometheus
+    restart: unless-stopped
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    depends_on:
+      otel-collector:
+        condition: service_started
+    networks:
+      - minicomm-network
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: minicomm-grafana
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?GRAFANA_ADMIN_PASSWORD is required}
+    volumes:
+      - grafana-data:/var/lib/grafana
+    depends_on:
+      - prometheus
+    networks:
+      - minicomm-network
+
+volumes:
+  ordering-db-data:
+  inventory-db-data:
+  payment-db-data:
+  shipping-db-data:
+  grafana-data:
+
+networks:
+  minicomm-network:
+    name: minicomm-network
+    driver: bridge
