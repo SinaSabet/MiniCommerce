@@ -52,7 +52,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
 
-      - name: Build Docker Image
+      - name: Build Image
         run: |
           IMAGE=ghcr.io/${{ github.repository_owner }}/minicommerce-${{ matrix.image }}
 
@@ -61,7 +61,7 @@ jobs:
           -t $IMAGE:latest .
 
 
-      - name: Push Docker Image
+      - name: Push Image
         run: |
           IMAGE=ghcr.io/${{ github.repository_owner }}/minicommerce-${{ matrix.image }}
 
