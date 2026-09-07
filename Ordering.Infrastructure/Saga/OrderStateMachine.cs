@@ -93,13 +93,15 @@ public sealed class OrderStateMachine
 
 
         Schedule(
-            () => PaymentTimeout,
-            x => x.PaymentTimeoutTokenId,
-            x =>
-            {
-                x.Delay =
-                    TimeSpan.FromMinutes(5);
-            });
+     () => PaymentTimeout,
+     x => x.PaymentTimeoutTokenId,
+     x =>
+     {
+         x.Delay = TimeSpan.FromMinutes(5);
+
+         x.Received = e =>
+             e.CorrelateById(context => context.Message.OrderId);
+     });
 
 
 
@@ -154,14 +156,15 @@ public sealed class OrderStateMachine
 
 
         Schedule(
-            () => ShippingTimeout,
-            x => x.ShippingTimeoutTokenId,
-            x =>
-            {
-                x.Delay =
-                    TimeSpan.FromHours(24);
-            });
+      () => ShippingTimeout,
+      x => x.ShippingTimeoutTokenId,
+      x =>
+      {
+          x.Delay = TimeSpan.FromHours(24);
 
+          x.Received = e =>
+              e.CorrelateById(context => context.Message.OrderId);
+      });
 
 
         Event(() => PaymentRefunded,
