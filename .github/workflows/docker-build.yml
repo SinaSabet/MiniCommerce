@@ -2,11 +2,7 @@ name: Docker Build and Push
 
 
 on:
-  workflow_run:
-    workflows:
-      - MiniCommerce CI
-    types:
-      - completed
+  push:
     branches:
       - main
 
@@ -19,40 +15,35 @@ permissions:
 jobs:
 
   docker-build:
-
-    if: github.event.workflow_run.conclusion == 'success'
-
     runs-on: ubuntu-latest
 
 
     strategy:
       matrix:
         include:
-          - service: Ordering.API
-            image: ordering-api
+          - name: ordering-api
+            dockerfile: Ordering.API/Dockerfile
 
-          - service: Inventory.API
-            image: inventory-api
+          - name: inventory-api
+            dockerfile: Inventory.API/Dockerfile
 
-          - service: Payment.API
-            image: payment-api
+          - name: payment-api
+            dockerfile: Payment.API/Dockerfile
 
-          - service: Shipping.API
-            image: shipping-api
+          - name: shipping-api
+            dockerfile: Shipping.API/Dockerfile
 
-          - service: FaultMonitoring.Worker
-            image: fault-monitoring-worker
+          - name: fault-monitoring-worker
+            dockerfile: FaultMonitoring.Worker/Dockerfile
 
-          - service: MiniCommerce.DatabaseMigrator
-            image: database-migrator
+          - name: database-migrator
+            dockerfile: MiniCommerce.DatabaseMigrator/Dockerfile
 
 
     steps:
 
       - name: Checkout
         uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.workflow_run.head_sha }}
 
 
       - name: Login to GHCR
@@ -65,21 +56,19 @@ jobs:
 
       - name: Build Image
         run: |
-          OWNER=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
-          IMAGE=ghcr.io/$OWNER/minicommerce-${{ matrix.image }}
-          IMAGE_TAG=${{ github.event.workflow_run.head_sha }}
+          IMAGE=ghcr.io/sinasabet/minicommerce-${{ matrix.name }}
+          IMAGE_TAG=${{ github.sha }}
 
           docker build \
-          -f ${{ matrix.service }}/Dockerfile \
+          -f ${{ matrix.dockerfile }} \
           -t $IMAGE:latest \
           -t $IMAGE:$IMAGE_TAG .
 
 
       - name: Push Image
         run: |
-          OWNER=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
-          IMAGE=ghcr.io/$OWNER/minicommerce-${{ matrix.image }}
-          IMAGE_TAG=${{ github.event.workflow_run.head_sha }}
+          IMAGE=ghcr.io/sinasabet/minicommerce-${{ matrix.name }}
+          IMAGE_TAG=${{ github.sha }}
 
           docker push $IMAGE:latest
           docker push $IMAGE:$IMAGE_TAG
