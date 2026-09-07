@@ -1,100 +1,101 @@
 # MiniCommerce
 
-یک پروژهٔ نمونه و کوچک تجارت الکترونیک نوشته‌شده با C# (.NET) که برای اهداف آموزشی و نمونه‌سازی طراحی شده است.
+A small sample e-commerce application written in C# (.NET), created for learning and prototyping purposes.
 
-## خلاصه
+## Overview
 
-MiniCommerce یک فروشگاه آنلاین ساده است که امکانات پایه مانند مدیریت محصولات، سبد خرید، سفارش‌گذاری و پرداخت (شبیه‌سازی) را ارائه می‌دهد. این پروژه مناسب برای یادگیری معماری‌های لایه‌ای، طراحی API با ASP.NET Core و آشنایی با گردش‌کار توسعهٔ .NET است.
+MiniCommerce is a simple online store that provides basic features such as product management, a shopping cart, order placement, and a simulated payment flow. This repository is intended for learning layered architecture, building APIs with ASP.NET Core, and getting familiar with the .NET development workflow.
 
-## ویژگی‌ها
+## Features
 
-- مدیریت محصولات (CRUD)
-- سبد خرید ساده
-- ثبت سفارش
-- ساختار پروژهٔ خوانا و قابل توسعه
-- شامل Dockerfile برای اجرای کانتینری
+- Product management (CRUD)
+- Simple shopping cart
+- Order creation
+- Clear, extensible project structure
+- Includes a Dockerfile for containerized runs
 
-## فناوری‌ها
+## Technologies
 
-- زبان: C#
-- فریم‌ورک: .NET 6/7 (لطفاً نسخهٔ دقیق را در فایل پروژه بررسی کنید)
-- Container: Docker (یک Dockerfile در ریشه وجود دارد)
+- Language: C#
+- Framework: .NET 6/7 (check the project files for the exact target framework)
+- Container: Docker (Dockerfile present in the repository)
 
-## پیش‌نیازها
+## Prerequisites
 
-- .NET SDK (نسخهٔ توصیه‌شده: 6 یا 7)
-- Docker (اختیاری برای اجرای کانتینری)
+- .NET SDK (recommended: 6 or 7)
+- Docker (optional, for container runs)
 
-## نصب و اجرا (محلی)
+## Local setup and run
 
-1. مخزن را کلون کنید:
+1. Clone the repository:
 
    git clone https://github.com/SinaSabet/MiniCommerce.git
    cd MiniCommerce
 
-2. بازگردانی بسته‌ها:
+2. Restore packages:
 
    dotnet restore
 
-3. بیلد و اجرا:
+3. Build and run:
 
    dotnet build
    dotnet run --project ./src/YourProjectName/YourProjectName.csproj
 
-(نام دقیق پروژه را از ساختار پوشه‌ها و فایل‌های .csproj موجود در مخزن بررسی کنید و مسیر درست را جایگزین کنید.)
+Replace `./src/YourProjectName/YourProjectName.csproj` with the actual path to the main .csproj file in this repository.
 
-## اجرای با Docker
+## Running with Docker
 
-1. برای ساخت تصویر:
+1. Build the image:
 
    docker build -t minicommerce:latest .
 
-2. برای اجرای کانتینر:
+2. Run the container:
 
    docker run -p 5000:80 minicommerce:latest
 
-پورت داخل کانتینر ممکن است متفاوت باشد؛ در صورت نیاز فایل Dockerfile را بررسی کنید.
+The internal container port may differ; check the Dockerfile and application settings if needed.
 
-## تست‌ها
+## Tests
 
-در صورتی که تست‌های واحد وجود داشته باشند، آن‌ها را با دستور زیر اجرا کنید:
+If there are unit tests included, run them with:
 
    dotnet test
 
-## ساختار پروژه
+## Project structure
 
-- /src: کد منبع
-- /tests: (در صورت وجود) تست‌ها
-- Dockerfile: فایل کانتینری
+- /src: application source code
+- /tests: unit and integration tests (if present)
+- Dockerfile: container build definition
 
-(در صورت نیاز می‌توانم یک بخش دقیق‌تر ساختار پروژه را با لیست فایل‌ها و توضیح هر ماژول اضافه کنم.)
+If you'd like, I can add a more detailed tree of files and explain each module.
 
-## مشارکت
+## Contributing
 
-خوشحال می‌شوم مشارکت شما را ببینم. اگر باگی پیدا کردید یا پیشنهادی دارید:
+Contributions are welcome.
 
-1. Issue باز کنید.
-2. یک شاخهٔ جدید بسازید: `git checkout -b feature/your-feature`.
-3. تغییرات را ارسال کنید و Pull Request بسازید.
+1. Open an issue to discuss major changes.
+2. Create a branch for your work: `git checkout -b feature/your-feature`.
+3. Commit and push your changes, then open a Pull Request.
 
-## لایسنس
+## License
 
-لطفاً در صورت تمایل یک فایل LICENSE اضافه کنید. در حال حاضر هیچ لایسنسی مشخص نشده است.
+If you want this project to be open-source, add a LICENSE file (for example MIT) to the repository. Currently no license file is included.
 
-## تماس
+## Contact
 
-- صاحب پروژه: SinaSabet
-- لینک مخزن: https://github.com/SinaSabet/MiniCommerce
+- Repository owner: SinaSabet
+- Repository: https://github.com/SinaSabet/MiniCommerce
 
 ---
 
-اگر مایل باشید می‌توانم این README را توسعه دهم (مثلاً اضافه کردن دستورالعمل‌های دقیق راه‌اندازی، مثال‌های API، اسکرین‌شات یا Badges). همچنین من نمی‌توانم از طریق API پروفایل شما را پین کنم، اما راهنمایی مرحله‌به‌مرحله برای افزودن مخزن به بخش "Pinned" در پروفایلتان را در ادامه می‌دهم:
+Notes:
+- I updated README.md to an English version.
+- I cannot pin the repository to your GitHub profile automatically, but you can do it from your profile page: go to your profile → "Customize your pins" → select MiniCommerce → Save.
 
-نحوه پین کردن مخزن در پروفایل GitHub:
-1. وارد حساب GitHub خود شوید.
-2. به صفحهٔ پروفایل خود بروید (https://github.com/SinaSabet).
-3. روی "Customize your pins" یا آیکون مداد در بخش "Pinned" کلیک کنید.
-4. "Pin a repository" را انتخاب کرده و MiniCommerce را انتخاب کنید.
-5. تغییرات را ذخیره کنید.
+Next steps I can do for you (pick any):
+- Add badges (build, coverage, .NET) to the README
+- Add more detailed setup instructions with the exact .csproj path and environment variables
+- Add API examples (sample requests and responses) and screenshots
+- Create a simple GitHub Actions CI workflow and add its badge
 
-می‌خواهید README را همین‌الان با توضیحات تکمیلی (مثال‌های API، نمونه داده، یا تصویری) به‌روزرسانی کنم؟
+Would you like me to apply any of these changes now?
