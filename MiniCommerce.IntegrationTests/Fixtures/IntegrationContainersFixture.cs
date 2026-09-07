@@ -1,3 +1,4 @@
+using DotNet.Testcontainers.Builders;
 using DotNet.Testcontainers.Containers;
 using Testcontainers.MsSql;
 using Testcontainers.RabbitMq;
@@ -17,6 +18,11 @@ public sealed class IntegrationContainersFixture : IAsyncLifetime
         new RabbitMqBuilder("rabbitmq:4-management-alpine")
             .WithUsername(RabbitUsername)
             .WithPassword(RabbitPassword)
+            .WithWaitStrategy(
+                Wait.ForUnixContainer()
+                    .UntilInternalTcpPortIsAvailable(5672)
+                    .UntilCommandIsCompleted("rabbitmq-diagnostics", "-q", "ping")
+                    .UntilCommandIsCompleted("rabbitmq-diagnostics", "-q", "check_running"))
             .Build();
 
     public async Task InitializeAsync()

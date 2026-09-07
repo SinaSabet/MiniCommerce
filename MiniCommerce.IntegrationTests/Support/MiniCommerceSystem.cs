@@ -247,7 +247,7 @@ public sealed class MiniCommerceSystem : IAsyncDisposable
         Func<int, bool> predicate,
         TimeSpan? timeout = null)
     {
-        var deadline = DateTime.UtcNow + (timeout ?? TimeSpan.FromSeconds(45));
+        var deadline = DateTime.UtcNow + (timeout ?? TimeSpan.FromSeconds(90));
         while (DateTime.UtcNow < deadline)
         {
             if (predicate(await CountOrderingOutboxMessagesAsync()))
@@ -278,7 +278,7 @@ public sealed class MiniCommerceSystem : IAsyncDisposable
         services.AddSingleton<EventProbeStore>();
         services.AddMassTransitTestHarness(x =>
         {
-            x.SetTestTimeouts(TimeSpan.FromSeconds(45), TimeSpan.FromSeconds(3));
+            x.SetTestTimeouts(TimeSpan.FromSeconds(90), TimeSpan.FromSeconds(10));
             x.AddConsumer<EventProbeConsumer>();
             x.UsingRabbitMq((context, cfg) =>
             {
@@ -374,7 +374,7 @@ public sealed class MiniCommerceSystem : IAsyncDisposable
         TimeSpan? timeout = null)
         where T : class
     {
-        var wait = timeout ?? TimeSpan.FromSeconds(45);
+        var wait = timeout ?? TimeSpan.FromSeconds(90);
         var deadline = DateTime.UtcNow + wait;
         while (DateTime.UtcNow < deadline)
         {
@@ -390,7 +390,7 @@ public sealed class MiniCommerceSystem : IAsyncDisposable
         Func<Task<Guid?>> probe,
         TimeSpan? timeout = null)
     {
-        var wait = timeout ?? TimeSpan.FromSeconds(45);
+        var wait = timeout ?? TimeSpan.FromSeconds(90);
         var deadline = DateTime.UtcNow + wait;
         while (DateTime.UtcNow < deadline)
         {
