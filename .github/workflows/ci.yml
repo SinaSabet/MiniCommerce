@@ -39,6 +39,18 @@ jobs:
         run: dotnet build MiniCommerce.sln --no-restore --configuration Release
 
 
-      - name: Run tests
-        timeout-minutes: 30
-        run: dotnet test MiniCommerce.sln --no-build --configuration Release
+      - name: Test
+        run: |
+          dotnet test MiniCommerce.sln \
+          --no-build \
+          --configuration Release \
+          --logger "console;verbosity=detailed" \
+          --logger "trx;LogFileName=test-results.trx"
+
+
+      - name: Upload Test Results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: "**/*.trx"
