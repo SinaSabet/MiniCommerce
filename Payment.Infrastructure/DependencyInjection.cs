@@ -1,6 +1,7 @@
 using Payment.Application.Interfaces;
 using Payment.Domain.PaymentTransactions;
 using Payment.Infrastructure.Messaging.Consumers;
+using Payment.Infrastructure.Messaging.Observers;
 using Payment.Infrastructure.Persistence;
 using Payment.Infrastructure.Persistence.Repositories;
 using Payment.Infrastructure.Services;
@@ -26,6 +27,7 @@ public static class DependencyInjection
         services.AddScoped<IPaymentTransactionRepository, PaymentTransactionRepository>();
         services.AddScoped<IUnitOfWork, UnitOfWork>();
         services.AddScoped<IDomainEventDispatcher, DomainEventDispatcher>();
+        services.AddReceiveObserver<ServiceFaultReceiveObserver>();
 
         // Register MassTransit
         services.AddMassTransit(x =>
@@ -38,7 +40,6 @@ public static class DependencyInjection
                 o.UseSqlServer();
                 o.UseBusOutbox();
             });
-
             x.UsingRabbitMq((context, cfg) =>
             {
                 var host = configuration["RabbitMQ:Host"] ?? "localhost";
@@ -68,7 +69,23 @@ public static class DependencyInjection
                 });
 
 
-                cfg.ConfigureEndpoints(context);
+                cfg.ReceiveEndpoint(
+                    "payment-requested",
+                    endpoint =>
+                    {
+                        endpoint.ConfigureConsumer<
+                            PaymentRequestedIntegrationEventConsumer>(
+                            context);
+                    });
+
+                cfg.ReceiveEndpoint(
+                    "payment-refund-requested",
+                    endpoint =>
+                    {
+                        endpoint.ConfigureConsumer<
+                            RefundPaymentRequestedIntegrationEventConsumer>(
+                            context);
+                    });
             });
         });
 

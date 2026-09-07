@@ -1,3 +1,6 @@
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
+using Ordering.API.Extensions;
 using Ordering.API.Middleware;
 using Ordering.Application;
 using Ordering.Infrastructure;
@@ -9,8 +12,14 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Services
     .AddHealthChecks()
-    .AddDbContextCheck<OrderingDbContext>()
-    .AddRabbitMQ();
+
+    .AddCheck(
+        "self",
+        () => HealthCheckResult.Healthy(),
+        tags: new[] { "live" })
+
+    .AddDbContextCheck<OrderingDbContext>(
+        tags: new[] { "ready" });
 
 
 
@@ -25,6 +34,8 @@ builder.Services
 builder.Services
     .AddInfrastructure(
         builder.Configuration);
+
+builder.Services.AddOpenTelemetryTracing();
 
 
 Log.Logger =
@@ -49,6 +60,24 @@ app.MapControllers();
 
 app.UseSwagger();
 app.UseSwaggerUI();
+
+
+app.MapHealthChecks(
+    "/health/live",
+    new HealthCheckOptions
+    {
+        Predicate = check =>
+            check.Tags.Contains("live")
+    });
+
+
+app.MapHealthChecks(
+    "/health/ready",
+    new HealthCheckOptions
+    {
+        Predicate = check =>
+            check.Tags.Contains("ready")
+    });
 
 
 

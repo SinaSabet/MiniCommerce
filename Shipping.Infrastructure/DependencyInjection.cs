@@ -6,6 +6,7 @@ using Shipping.Application.Interfaces;
 using Shipping.Application.Services;
 using Shipping.Domain.Shipments;
 using Shipping.Infrastructure.Messaging.Consumers;
+using Shipping.Infrastructure.Messaging.Observers;
 using Shipping.Infrastructure.Persistence;
 using Shipping.Infrastructure.Persistence.Repositories;
 
@@ -24,6 +25,7 @@ public static class DependencyInjection
         services.AddScoped<IShipmentRepository, ShipmentRepository>();
         services.AddScoped<IUnitOfWork, UnitOfWork>();
         services.AddScoped<IDomainEventDispatcher, DomainEventDispatcher>();
+        services.AddReceiveObserver<ServiceFaultReceiveObserver>();
 
         services.AddMassTransit(registration =>
         {
@@ -64,7 +66,14 @@ public static class DependencyInjection
                         maxInterval: TimeSpan.FromSeconds(30),
                         intervalDelta: TimeSpan.FromSeconds(5)));
 
-                bus.ConfigureEndpoints(context);
+                bus.ReceiveEndpoint(
+                    "shipping-requested",
+                    endpoint =>
+                    {
+                        endpoint.ConfigureConsumer<
+                            ShippingRequestedIntegrationEventConsumer>(
+                            context);
+                    });
             });
         });
 

@@ -6,18 +6,14 @@ FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 
 WORKDIR /src
 
-COPY MiniCommerce.sln .
 COPY BuildingBlocks ./BuildingBlocks
 COPY BuildingBlocks.Contracts ./BuildingBlocks.Contracts
-COPY Shipping.API ./Shipping.API
-COPY Shipping.Application ./Shipping.Application
-COPY Shipping.Domain ./Shipping.Domain
-COPY Shipping.Infrastructure ./Shipping.Infrastructure
+COPY FaultMonitoring.Worker ./FaultMonitoring.Worker
 
-RUN dotnet restore Shipping.API/Shipping.API.csproj
+RUN dotnet restore FaultMonitoring.Worker/FaultMonitoring.Worker.csproj
 
 RUN dotnet publish \
-    Shipping.API/Shipping.API.csproj \
+    FaultMonitoring.Worker/FaultMonitoring.Worker.csproj \
     -c Release \
     -o /app/publish \
     --no-restore
@@ -26,12 +22,10 @@ RUN dotnet publish \
 # Runtime Stage
 # ===============================
 
-FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS runtime
+FROM mcr.microsoft.com/dotnet/runtime:8.0 AS runtime
 
 WORKDIR /app
 
 COPY --from=build /app/publish .
 
-EXPOSE 8080
-
-ENTRYPOINT ["dotnet", "Shipping.API.dll"]
+ENTRYPOINT ["dotnet", "FaultMonitoring.Worker.dll"]

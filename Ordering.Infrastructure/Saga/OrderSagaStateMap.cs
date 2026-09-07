@@ -21,14 +21,44 @@ public class OrderSagaStateMap
             x => x.CorrelationId);
 
 
+
+        // Optimistic Concurrency Token
+        entity.Property(
+            x => x.RowVersion)
+            .IsRowVersion();
+
+
+
         entity.Property(
             x => x.CurrentState)
-            .HasMaxLength(64);
+            .HasMaxLength(64)
+            .IsRequired();
+
 
 
         entity.Property(
             x => x.Currency)
             .HasMaxLength(10);
+
+
+
+        // Faster business lookup/debugging
+        entity.HasIndex(
+            x => x.OrderId);
+
+
+
+        // Helps queries on active sagas
+        entity.HasIndex(
+            x => x.CurrentState);
+
+
+
+        entity.Property(
+            x => x.Amount)
+            .HasPrecision(
+                18,
+                2);
 
     }
 }

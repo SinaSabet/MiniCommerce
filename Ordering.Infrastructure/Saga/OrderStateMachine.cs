@@ -59,13 +59,6 @@ public sealed class OrderStateMachine
 
     public Event<InventoryReleasedIntegrationEvent> InventoryReleased { get; private set; } = default!;
 
-
-    public Event<Fault<PaymentRequestedIntegrationEvent>> PaymentFaulted { get; private set; } = default!;
-
-
-    public Event<Fault<ReserveInventoryRequestedIntegrationEvent>> InventoryFaulted { get; private set; } = default!;
-
-
     public Event<ShipmentCreatedIntegrationEvent> ShipmentCreated { get; private set; } = default!;
 
 
@@ -76,10 +69,28 @@ public sealed class OrderStateMachine
     public Event<PaymentTimeoutExpired> PaymentTimeoutExpired { get; private set; } = default!;
 
 
+    public Event<ShippingTimeoutExpired> ShippingTimeoutExpired { get; private set; } = default!;
+
+
 
     public Schedule<OrderSagaState, PaymentTimeoutExpired> PaymentTimeout { get; private set; } = default!;
 
 
+    public Schedule<OrderSagaState, ShippingTimeoutExpired> ShippingTimeout { get; private set; } = default!;
+
+
+    public Event<Fault<ReserveInventoryRequestedIntegrationEvent>> InventoryFaulted { get; private set; } = default!;
+
+
+    public Event<Fault<PaymentRequestedIntegrationEvent>> PaymentFaulted { get; private set; } = default!;
+
+
+    public Event<Fault<ShippingRequestedIntegrationEvent>> ShippingRequestedFault { get; private set; } = default!;
+
+
+    public Event<Fault<RefundPaymentRequestedIntegrationEvent>> RefundPaymentRequestedFault { get; private set; } = default!;
+
+    public Event<Fault<ReleaseInventoryRequestedIntegrationEvent>> ReleaseInventoryFaulted {get;private set;} = default!;
 
     public OrderStateMachine()
     {
@@ -150,6 +161,17 @@ public sealed class OrderStateMachine
 
 
 
+        Schedule(
+            () => ShippingTimeout,
+            x => x.ShippingTimeoutTokenId,
+            x =>
+            {
+                x.Delay =
+                    TimeSpan.FromHours(24);
+            });
+
+
+
         Event(() => PaymentRefunded,
             x =>
             {
@@ -168,7 +190,13 @@ public sealed class OrderStateMachine
                         context.Message.OrderId);
             });
 
-
+        Event(() => ReleaseInventoryFaulted,
+            x =>
+            {
+                x.CorrelateById(
+                    context =>
+                        context.Message.Message.OrderId);
+            });
 
         Event(() => InventoryReleased,
             x =>
@@ -200,7 +228,34 @@ public sealed class OrderStateMachine
 
 
 
+        Event(() => ShippingRequestedFault,
+            x =>
+            {
+                x.CorrelateById(
+                    context =>
+                        context.Message.Message.OrderId);
+            });
+
+
+        Event(() => RefundPaymentRequestedFault,
+            x =>
+            {
+                x.CorrelateById(
+                    context =>
+                        context.Message.Message.OrderId);
+            });
+
         Event(() => PaymentTimeoutExpired,
+            x =>
+            {
+                x.CorrelateById(
+                    context =>
+                        context.Message.OrderId);
+            });
+
+
+
+        Event(() => ShippingTimeoutExpired,
             x =>
             {
                 x.CorrelateById(
@@ -384,49 +439,55 @@ public sealed class OrderStateMachine
             .TransitionTo(AwaitingPayment)
 
         );
-        During(
+                During(
 
-    AwaitingPayment,
-
-
-    When(PaymentCompleted)
+             AwaitingPayment,
 
 
-    .Unschedule(PaymentTimeout)
+             When(PaymentCompleted)
+
+             .IfElse(
+                 context => !context.Saga.PaymentCompleted,
 
 
-    .Then(context =>
-    {
+                 then => then
 
-        context.Saga.PaymentCompleted =
-            true;
+                     .Unschedule(PaymentTimeout)
 
+                     .Then(context =>
+                     {
+                         context.Saga.PaymentCompleted = true;
 
-        context.Saga.PaymentId =
-            context.Message.PaymentId;
+                         context.Saga.PaymentId =
+                             context.Message.PaymentId;
 
+                     })
 
-        context.Saga.CompletedAt =
-            DateTime.UtcNow;
+                     .Publish(context =>
+                         new ShippingRequestedIntegrationEvent
+                         {
+                             OrderId =
+                                 context.Saga.OrderId,
 
-    })
-
-
-    .Publish(context =>
-        new ShippingRequestedIntegrationEvent
-        {
-            OrderId =
-                context.Saga.OrderId,
-
-
-            PaymentId =
-                context.Message.PaymentId
-        })
+                             PaymentId =
+                                 context.Message.PaymentId
+                         })
 
 
-    .TransitionTo(AwaitingShipping)
+                     .Schedule(
+                         ShippingTimeout,
+                         context =>
+                             new ShippingTimeoutExpired(
+                                 context.Saga.OrderId))
 
-);
+
+                     .TransitionTo(AwaitingShipping),
+
+
+                 otherwise => otherwise
+             )
+
+         );
 
 
 
@@ -441,16 +502,26 @@ public sealed class OrderStateMachine
             When(ShipmentCreated)
 
 
-            .Then(context =>
-            {
-
-                context.Saga.CompletedAt =
-                    DateTime.UtcNow;
-
-            })
+            .IfElse(
+                context => context.Saga.CompletedAt is null,
 
 
-            .TransitionTo(Completed)
+                then => then
+
+                    .Unschedule(ShippingTimeout)
+
+                    .Then(context =>
+                    {
+                        context.Saga.CompletedAt =
+                            DateTime.UtcNow;
+                    })
+
+
+                    .TransitionTo(Completed),
+
+
+                otherwise => otherwise
+            )
 
         );
 
@@ -512,69 +583,58 @@ public sealed class OrderStateMachine
             AwaitingRefund,
 
 
-            When(PaymentRefunded)
+         When(PaymentRefunded)
+
+         .IfElse(
+             context => !context.Saga.PaymentRefunded,
 
 
-            .Then(context =>
-            {
+             then => then
 
-                EnsurePaymentMatches(
-                    context.Saga.PaymentId,
-                    context.Message.PaymentId);
-
-
-                context.Saga.PaymentRefunded =
-                    true;
-
-            })
+                 .Then(context =>
+                 {
+                     context.Saga.PaymentRefunded = true;
+                 })
 
 
-            .Publish(context =>
-                new ReleaseInventoryRequestedIntegrationEvent
+                 .Publish(context =>
+                     new ReleaseInventoryRequestedIntegrationEvent
+                     {
+                         OrderId =
+                             context.Saga.OrderId,
+
+                         ReservationIds =
+                             context.Saga.ReservationIds.ToArray(),
+
+                         ReservationId =
+                             context.Saga.ReservationIds.FirstOrDefault()
+                     })
+
+
+                 .TransitionTo(Compensating),
+
+
+             otherwise => otherwise
+         )
+
+     );
+
+
+            During(
+
+                Compensating,
+
+                When(ReleaseInventoryFaulted)
+
+                .Then(context =>
                 {
-                    OrderId =
-                        context.Saga.OrderId,
-
-
-                    ReservationIds =
-                        context.Saga.ReservationIds
-                        .ToArray(),
-
-
-                    ReservationId =
-                        context.Saga.ReservationIds
-                        .FirstOrDefault()
+                    context.Saga.FailedAt =
+                        DateTime.UtcNow;
                 })
 
+                .TransitionTo(Failed)
 
-            .TransitionTo(Compensating),
-
-
-            When(PaymentRefundFailed)
-
-
-            .Then(context =>
-            {
-
-                EnsurePaymentMatches(
-                    context.Saga.PaymentId,
-                    context.Message.PaymentId);
-
-
-                context.Saga.FailedAt =
-                    DateTime.UtcNow;
-
-            })
-
-
-            .TransitionTo(Failed)
-
-        );
-
-
-
-
-
+            );
 
 
         During(
@@ -618,6 +678,48 @@ public sealed class OrderStateMachine
 
 
             .TransitionTo(Compensating)
+
+        );
+
+
+
+
+
+        During(
+
+            AwaitingShipping,
+
+
+            When(ShippingTimeoutExpired)
+
+
+            .Then(context =>
+            {
+                context.Saga.CompensationStarted =
+                    true;
+
+                context.Saga.FailedAt =
+                    DateTime.UtcNow;
+            })
+
+
+            .Publish(context =>
+                new RefundPaymentRequestedIntegrationEvent
+                {
+                    OrderId =
+                        context.Saga.OrderId,
+
+                    PaymentId =
+                        context.Saga.PaymentId
+                        ?? throw new InvalidOperationException(
+                            "Cannot compensate shipping timeout without a payment identifier."),
+
+                    Amount =
+                        context.Saga.Amount
+                })
+
+
+            .TransitionTo(AwaitingRefund)
 
         );
 
@@ -723,49 +825,125 @@ public sealed class OrderStateMachine
 
 
 
+                During(
+
+             Compensating,
+
+
+             When(InventoryReleased)
+
+             .IfElse(
+                 context => !context.Saga.InventoryReleased,
+
+
+                 then => then
+
+                     .Then(context =>
+                     {
+                         context.Saga.InventoryReleased = true;
+
+                         context.Saga.CompletedAt =
+                             DateTime.UtcNow;
+                     })
+
+
+                     .TransitionTo(Cancelled),
+
+
+                 otherwise => otherwise
+             )
+
+         );
+
         During(
 
-            Compensating,
+        AwaitingShipping,
 
 
-            When(InventoryReleased)
+        When(ShippingRequestedFault)
+
+
+        .Then(context =>
+        {
+            context.Saga.CompensationStarted = true;
+
+            context.Saga.FailedAt =
+                DateTime.UtcNow;
+        })
+
+
+        .Publish(context =>
+            new RefundPaymentRequestedIntegrationEvent
+            {
+                OrderId =
+                    context.Saga.OrderId,
+
+                PaymentId =
+                    context.Saga.PaymentId!.Value,
+
+                Amount =
+                    context.Saga.Amount
+            })
+
+
+        .TransitionTo(AwaitingRefund)
+
+    );
+
+                During(
+
+            AwaitingRefund,
+
+
+            When(RefundPaymentRequestedFault)
 
 
             .Then(context =>
             {
-
-                var releasedReservationIds =
-                    GetReservationIds(
-                        context.Message.ReservationIds,
-                        context.Message.ReservationId);
-
-
-
-                if (context.Saga.ReservationIds.Any(
-                    reservationId =>
-                        !releasedReservationIds.Contains(reservationId)))
-                {
-
-                    throw new InvalidOperationException(
-                        "Inventory release confirmation does not contain all reservations.");
-
-                }
-
-
-
-                context.Saga.InventoryReleased =
-                    true;
-
-
-                context.Saga.CompletedAt =
+                context.Saga.FailedAt =
                     DateTime.UtcNow;
-
             })
 
 
-            .TransitionTo(Cancelled)
+            .TransitionTo(Failed)
 
         );
+
+
+
+        During(
+            AwaitingShipping,
+            Ignore(PaymentCompleted));
+
+
+        During(
+            AwaitingRefund,
+            Ignore(PaymentCompleted));
+
+
+        During(
+            Compensating,
+            Ignore(PaymentCompleted),
+            Ignore(PaymentRefunded));
+
+
+        During(
+            Completed,
+            Ignore(PaymentCompleted),
+            Ignore(ShipmentCreated));
+
+
+        During(
+            Failed,
+            Ignore(PaymentCompleted),
+            Ignore(PaymentRefunded));
+
+
+        During(
+            Cancelled,
+            Ignore(PaymentCompleted),
+            Ignore(PaymentRefunded),
+            Ignore(InventoryReleased));
 
     }
 
@@ -795,16 +973,4 @@ public sealed class OrderStateMachine
                 };
 
     }
-
-
-
-    private static void EnsurePaymentMatches(
-        Guid? expectedPaymentId,
-        Guid actualPaymentId)
-    {
-        if (expectedPaymentId is null || expectedPaymentId != actualPaymentId)
-            throw new InvalidOperationException(
-                "Payment compensation confirmation does not match the saga payment.");
-    }
-
 }

@@ -1,3 +1,6 @@
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
+using Shipping.API.Extensions;
 using Shipping.API.Middleware;
 using Shipping.Application;
 using Shipping.Infrastructure;
@@ -8,12 +11,19 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Services
     .AddHealthChecks()
-    .AddDbContextCheck<ShippingDbContext>()
-    .AddRabbitMQ();
+
+    .AddCheck(
+        "self",
+        () => HealthCheckResult.Healthy(),
+        tags: new[] { "live" })
+
+    .AddDbContextCheck<ShippingDbContext>(
+        tags: new[] { "ready" });
 
 builder.Services.AddControllers();
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
+builder.Services.AddOpenTelemetryTracing();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
@@ -30,7 +40,22 @@ app.UseMiddleware<RequestLoggingMiddleware>();
 app.UseMiddleware<ExceptionHandlingMiddleware>();
 
 app.MapControllers();
-app.MapHealthChecks("/health");
+
+app.MapHealthChecks(
+    "/health/live",
+    new HealthCheckOptions
+    {
+        Predicate = check =>
+            check.Tags.Contains("live")
+    });
+
+app.MapHealthChecks(
+    "/health/ready",
+    new HealthCheckOptions
+    {
+        Predicate = check =>
+            check.Tags.Contains("ready")
+    });
 
 app.UseSwagger();
 app.UseSwaggerUI();

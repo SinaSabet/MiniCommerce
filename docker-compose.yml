@@ -174,11 +174,58 @@ services:
 
 
 
+  payment-db:
+
+    image: mcr.microsoft.com/mssql/server:2022-latest
+
+    container_name: payment-sqlserver
+
+    restart: unless-stopped
+
+
+    environment:
+
+      ACCEPT_EULA: "Y"
+
+      MSSQL_SA_PASSWORD: ${MSSQL_PASSWORD}
+
+
+    ports:
+
+      - "14333:1433"
+
+
+    volumes:
+
+      - payment-db-data:/var/opt/mssql
+
+
+    healthcheck:
+
+      test:
+        [
+          "CMD-SHELL",
+          "timeout 5 bash -c '</dev/tcp/127.0.0.1/1433'"
+        ]
+
+      interval: 10s
+
+      timeout: 5s
+
+      retries: 20
+
+
+    networks:
+
+      - minicomm-network
+
+
+
+
 
   rabbitmq:
 
-    image: masstransit/rabbitmq
-
+    image: rabbitmq:3-management
     container_name: minicomm-rabbitmq
 
     restart: unless-stopped
@@ -246,6 +293,12 @@ services:
 
   ordering-api:
 
+    build:
+
+      context: .
+
+      dockerfile: Ordering.API/Dockerfile
+
     image: minicommerce-ordering
 
     container_name: ordering-api
@@ -261,6 +314,8 @@ services:
     environment:
 
       ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT}
+
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
 
 
       ConnectionStrings__OrderingConnection: "Server=ordering-db;Database=MiniCommerce.Ordering;User Id=sa;Password=${MSSQL_PASSWORD};TrustServerCertificate=True"
@@ -297,6 +352,12 @@ services:
 
   inventory-api:
 
+    build:
+
+      context: .
+
+      dockerfile: Inventory.API/Dockerfile
+
     image: minicommerce-inventory
 
     container_name: inventory-api
@@ -312,6 +373,8 @@ services:
     environment:
 
       ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT}
+
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
 
 
       ConnectionStrings__InventoryConnection: "Server=inventory-db;Database=MiniCommerce.Inventory;User Id=sa;Password=${MSSQL_PASSWORD};TrustServerCertificate=True"
@@ -347,31 +410,56 @@ services:
 
 
   shipping-api:
+    build:
+      context: .
+      dockerfile: Shipping.API/Dockerfile
+
+    image: minicommerce-shipping
+
+    container_name: minicomm-shipping-api
+
+    environment:
+      ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT}
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+
+    networks:
+      - minicomm-network
+
+
+
+
+  payment-api:
 
     build:
 
       context: .
 
-      dockerfile: Shipping.API/Dockerfile
+      dockerfile: Payment.API/Dockerfile
 
-    image: minicommerce-shipping
+    image: minicommerce-payment
 
-    container_name: shipping-api
+    container_name: payment-api
 
     restart: unless-stopped
 
 
     ports:
 
-      - "8083:8080"
+      - "8082:8080"
 
 
     environment:
 
       ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT}
 
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
 
-      ConnectionStrings__ShippingConnection: "Server=shipping-db;Database=MiniCommerce.Shipping;User Id=sa;Password=${MSSQL_PASSWORD};TrustServerCertificate=True"
+
+      ConnectionStrings__PaymentConnection: "Server=payment-db;Database=MiniCommerce.Payment;User Id=sa;Password=${MSSQL_PASSWORD};TrustServerCertificate=True"
 
 
       RabbitMQ__Host: rabbitmq
@@ -385,7 +473,7 @@ services:
 
     depends_on:
 
-      shipping-db:
+      payment-db:
 
         condition: service_healthy
 
@@ -403,6 +491,115 @@ services:
 
 
 
+  fault-monitoring-worker:
+
+    build:
+
+      context: .
+
+      dockerfile: FaultMonitoring.Worker/Dockerfile
+
+    image: minicommerce-fault-monitoring-worker
+
+    container_name: minicomm-fault-monitoring-worker
+
+    restart: unless-stopped
+
+
+    environment:
+
+      DOTNET_ENVIRONMENT: ${DOTNET_ENVIRONMENT:-Production}
+
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+
+      RabbitMQ__Host: rabbitmq
+
+      RabbitMQ__VirtualHost: /
+
+      RabbitMQ__Username: ${RABBIT_USERNAME}
+
+      RabbitMQ__Password: ${RABBIT_PASSWORD}
+
+
+    depends_on:
+
+      rabbitmq:
+
+        condition: service_healthy
+
+
+    networks:
+
+      - minicomm-network
+
+
+
+
+  otel-collector:
+
+    image: otel/opentelemetry-collector-contrib
+
+    container_name: minicomm-otel-collector
+
+    restart: unless-stopped
+
+
+    command:
+
+      - "--config=/etc/otelcol-contrib/config.yaml"
+
+
+    volumes:
+
+      - ./otel-collector-config.yaml:/etc/otelcol-contrib/config.yaml:ro
+
+
+    ports:
+
+      - "4317:4317"
+
+      - "4318:4318"
+
+
+    depends_on:
+
+      - jaeger
+
+
+    networks:
+
+      - minicomm-network
+
+
+
+
+  jaeger:
+
+    image: jaegertracing/all-in-one
+
+    container_name: minicomm-jaeger
+
+    restart: unless-stopped
+
+
+    environment:
+
+      COLLECTOR_OTLP_ENABLED: "true"
+
+
+    ports:
+
+      - "16686:16686"
+
+
+    networks:
+
+      - minicomm-network
+
+
+
+
+
 volumes:
 
   ordering-db-data:
@@ -410,6 +607,8 @@ volumes:
   inventory-db-data:
 
   shipping-db-data:
+
+  payment-db-data:
 
 
 

@@ -1,3 +1,6 @@
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
+using Inventory.API.Extensions;
 using Inventory.API.Middleware;
 using Inventory.Application;
 using Inventory.Infrastructure;
@@ -8,14 +11,22 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Services
     .AddHealthChecks()
-    .AddDbContextCheck<InventoryDbContext>()
-    .AddRabbitMQ();
+
+    .AddCheck(
+        "self",
+        () => HealthCheckResult.Healthy(),
+        tags: new[] { "live" })
+
+    .AddDbContextCheck<InventoryDbContext>(
+        tags: new[] { "ready" });
 
 builder.Services.AddControllers();
 builder.Services.AddApplication();
 
 builder.Services.AddInfrastructure(
     builder.Configuration);
+
+builder.Services.AddOpenTelemetryTracing();
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
@@ -38,6 +49,24 @@ app.MapControllers();
 
 app.UseSwagger();
 app.UseSwaggerUI();
+
+
+app.MapHealthChecks(
+    "/health/live",
+    new HealthCheckOptions
+    {
+        Predicate = check =>
+            check.Tags.Contains("live")
+    });
+
+
+app.MapHealthChecks(
+    "/health/ready",
+    new HealthCheckOptions
+    {
+        Predicate = check =>
+            check.Tags.Contains("ready")
+    });
 
 
 app.Run();

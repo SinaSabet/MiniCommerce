@@ -6,6 +6,7 @@ using Ordering.Application.Interfaces;
 using Ordering.Application.Services;
 using Ordering.Domain.Repositories;
 using Ordering.Infrastructure.Messaging.Consumers;
+using Ordering.Infrastructure.Messaging.Observers;
 using Ordering.Infrastructure.Persistence;
 using Ordering.Infrastructure.Persistence.Repositories;
 using Ordering.Infrastructure.Saga;
@@ -48,6 +49,8 @@ public static class DependencyInjection
 
         services.AddScoped<IDomainEventDispatcher,
             DomainEventDispatcher>();
+
+        services.AddReceiveObserver<ServiceFaultReceiveObserver>();
 
 
 

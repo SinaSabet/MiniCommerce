@@ -42,6 +42,8 @@ public sealed class OrderSagaState
 
     public Guid? PaymentTimeoutTokenId { get; set; }
 
+    public Guid? ShippingTimeoutTokenId { get; set; }
+
 
 
     public DateTime CreatedAt { get; set; }
@@ -57,5 +59,6 @@ public sealed class OrderSagaState
 
 
     public DateTime? FailedAt { get; set; }
+    public byte[] RowVersion { get; set; } = default!;
 
 }

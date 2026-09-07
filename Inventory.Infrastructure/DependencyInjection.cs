@@ -3,6 +3,7 @@ using Inventory.Application.Services;
 using Inventory.Domain.InventoryItems;
 using Inventory.Domain.Reservations;
 using Inventory.Infrastructure.Messaging.Consumers;
+using Inventory.Infrastructure.Messaging.Observers;
 using Inventory.Infrastructure.Persistence;
 using Inventory.Infrastructure.Persistence.Repositories;
 using MassTransit;
@@ -40,6 +41,7 @@ public static class DependencyInjection
 
 
         services.AddScoped<IDomainEventDispatcher, DomainEventDispatcher>();
+        services.AddReceiveObserver<ServiceFaultReceiveObserver>();
 
         services.AddMassTransit(x =>
         {
@@ -79,7 +81,23 @@ public static class DependencyInjection
                         intervalDelta: TimeSpan.FromSeconds(5));
                 });
 
-                cfg.ConfigureEndpoints(context);
+                cfg.ReceiveEndpoint(
+                    "inventory-reserve-requested",
+                    endpoint =>
+                    {
+                        endpoint.ConfigureConsumer<
+                            ReserveInventoryRequestedIntegrationEventConsumer>(
+                            context);
+                    });
+
+                cfg.ReceiveEndpoint(
+                    "inventory-release-requested",
+                    endpoint =>
+                    {
+                        endpoint.ConfigureConsumer<
+                            ReleaseInventoryRequestedIntegrationEventConsumer>(
+                            context);
+                    });
             });
         });
 
