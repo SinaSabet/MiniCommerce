@@ -76,7 +76,7 @@ services:
 
   ordering-db-init:
 
-    image: mcr.microsoft.com/mssql-tools18:latest
+    image: mcr.microsoft.com/mssql-tools18:1.0.0
 
     container_name: ordering-db-init
 
@@ -160,7 +160,7 @@ services:
 
   inventory-db-init:
 
-    image: mcr.microsoft.com/mssql-tools18:latest
+    image: mcr.microsoft.com/mssql-tools18:1.0.0
 
     container_name: inventory-db-init
 
@@ -242,7 +242,7 @@ services:
 
   shipping-db-init:
 
-    image: mcr.microsoft.com/mssql-tools18:latest
+    image: mcr.microsoft.com/mssql-tools18:1.0.0
 
     container_name: shipping-db-init
 
@@ -323,7 +323,7 @@ services:
 
   payment-db-init:
 
-    image: mcr.microsoft.com/mssql-tools18:latest
+    image: mcr.microsoft.com/mssql-tools18:1.0.0
 
     container_name: payment-db-init
 
