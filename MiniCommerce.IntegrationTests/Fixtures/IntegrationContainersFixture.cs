@@ -15,14 +15,18 @@ public sealed class IntegrationContainersFixture : IAsyncLifetime
         new MsSqlBuilder("mcr.microsoft.com/mssql/server:2019-CU14-ubuntu-20.04").Build();
 
     public RabbitMqContainer RabbitMq { get; } =
-        new RabbitMqBuilder("rabbitmq:4-management-alpine")
+        new RabbitMqBuilder("masstransit/rabbitmq:latest")
             .WithUsername(RabbitUsername)
             .WithPassword(RabbitPassword)
             .WithWaitStrategy(
                 Wait.ForUnixContainer()
                     .UntilInternalTcpPortIsAvailable(5672)
                     .UntilCommandIsCompleted("rabbitmq-diagnostics", "-q", "ping")
-                    .UntilCommandIsCompleted("rabbitmq-diagnostics", "-q", "check_running"))
+                    .UntilCommandIsCompleted("rabbitmq-diagnostics", "-q", "check_running")
+                    .UntilCommandIsCompleted(
+                        "rabbitmq-plugins",
+                        "is_enabled",
+                        "rabbitmq_delayed_message_exchange"))
             .Build();
 
     public async Task InitializeAsync()
@@ -49,6 +53,29 @@ public sealed class IntegrationContainersFixture : IAsyncLifetime
                     RabbitUsername, ".*", ".*", ".*"
                 },
                 cancellationToken));
+    }
+
+    public async Task WaitUntilRabbitMqIsReadyAsync(
+        CancellationToken cancellationToken = default)
+    {
+        var deadline = DateTime.UtcNow + TimeSpan.FromMinutes(2);
+        ExecResult lastResult = default;
+
+        while (DateTime.UtcNow < deadline)
+        {
+            lastResult = await RabbitMq.ExecAsync(
+                new[] { "rabbitmq-diagnostics", "-q", "check_running" },
+                cancellationToken);
+
+            if (lastResult.ExitCode == 0)
+                return;
+
+            await Task.Delay(TimeSpan.FromMilliseconds(500), cancellationToken);
+        }
+
+        throw new TimeoutException(
+            $"RabbitMQ did not become ready after it was resumed. " +
+            $"stdout: {lastResult.Stdout}; stderr: {lastResult.Stderr}");
     }
 
     public async Task DisposeAsync()

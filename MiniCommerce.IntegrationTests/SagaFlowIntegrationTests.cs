@@ -1,6 +1,7 @@
 using BuildingBlocks.Contracts.Events.Inventory;
 using BuildingBlocks.Contracts.Events.Ordering;
 using BuildingBlocks.Contracts.Events.Payment;
+using BuildingBlocks.Contracts.Events.Shipping;
 using Inventory.Domain.Reservations;
 using MassTransit;
 using MiniCommerce.IntegrationTests.Fixtures;
@@ -13,6 +14,8 @@ namespace MiniCommerce.IntegrationTests;
 [Collection(IntegrationContainersCollection.Name)]
 public sealed class SagaFlowIntegrationTests
 {
+    private static readonly TimeSpan CompensationTimeout = TimeSpan.FromMinutes(3);
+
     private readonly IntegrationContainersFixture _containers;
 
     public SagaFlowIntegrationTests(IntegrationContainersFixture containers)
@@ -36,6 +39,14 @@ public sealed class SagaFlowIntegrationTests
         var reservations = await system.WaitForReservationsAsync(orderId, ReservationStatus.Reserved, 2);
         var paymentId = await system.WaitForPaymentAsync(orderId);
         await system.CompletePaymentAsync(paymentId);
+
+        await system.WaitForSagaStateAsync(orderId, "AwaitingShipping");
+        Assert.True(await system.Harness.Consumed.Any<ShippingRequestedIntegrationEvent>());
+        await system.PublishAsync(new ShipmentCreatedIntegrationEvent
+        {
+            OrderId = orderId,
+            ShipmentId = Guid.NewGuid()
+        });
 
         var saga = await system.WaitForSagaStateAsync(orderId, "Completed");
         var payment = await system.GetPaymentAsync(paymentId);
@@ -68,8 +79,15 @@ public sealed class SagaFlowIntegrationTests
         Assert.True(await system.Harness.Consumed.Any<ReleaseInventoryRequestedIntegrationEvent>());
         Assert.True(await system.Harness.Consumed.Any<InventoryReleasedIntegrationEvent>());
 
-        var released = await system.WaitForReservationsAsync(orderId, ReservationStatus.Released, 2);
-        var saga = await system.WaitForSagaStateAsync(orderId, "Cancelled");
+        var released = await system.WaitForReservationsAsync(
+            orderId,
+            ReservationStatus.Released,
+            2,
+            CompensationTimeout);
+        var saga = await system.WaitForSagaStateAsync(
+            orderId,
+            "Cancelled",
+            CompensationTimeout);
         var inventory = await system.GetInventoryAsync(productIds);
         var payment = await system.GetPaymentAsync(paymentId);
 
@@ -102,7 +120,11 @@ public sealed class SagaFlowIntegrationTests
         await system.PublishAsync(duplicate);
         await system.PublishAsync(duplicate);
 
-        await system.WaitForReservationsAsync(orderId, ReservationStatus.Released, 2);
+        await system.WaitForReservationsAsync(
+            orderId,
+            ReservationStatus.Released,
+            2,
+            CompensationTimeout);
         var inventory = await system.GetInventoryAsync(productIds);
 
         Assert.Equal((12, 0), inventory[0]);
@@ -123,6 +145,7 @@ public sealed class SagaFlowIntegrationTests
             await system.WaitForOrderingOutboxCountAsync(count => count > 0);
 
             await _containers.RabbitMq.UnpauseAsync();
+            await _containers.WaitUntilRabbitMqIsReadyAsync();
 
             await system.WaitForSagaStateAsync(
                 orderId,
@@ -137,6 +160,8 @@ public sealed class SagaFlowIntegrationTests
         {
             if (_containers.RabbitMq.State == DotNet.Testcontainers.Containers.TestcontainersStates.Paused)
                 await _containers.RabbitMq.UnpauseAsync();
+
+            await _containers.WaitUntilRabbitMqIsReadyAsync();
         }
     }
 
@@ -153,11 +178,15 @@ public sealed class SagaFlowIntegrationTests
         await system.PublishFaultAsync(
             new PaymentRequestedIntegrationEvent(orderId, 2000m, "IRR"));
 
-        var saga = await system.WaitForSagaStateAsync(orderId, "Cancelled");
+        var saga = await system.WaitForSagaStateAsync(
+            orderId,
+            "Cancelled",
+            CompensationTimeout);
         var reservations = await system.WaitForReservationsAsync(
             orderId,
             ReservationStatus.Released,
-            1);
+            1,
+            CompensationTimeout);
         var inventory = await system.GetInventoryAsync(productIds);
 
         Assert.True(await system.Harness.Consumed.Any<Fault<PaymentRequestedIntegrationEvent>>());

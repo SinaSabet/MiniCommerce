@@ -40,6 +40,7 @@ jobs:
 
 
       - name: Test
+        timeout-minutes: 30
         run: |
           dotnet test MiniCommerce.sln \
           --no-build \

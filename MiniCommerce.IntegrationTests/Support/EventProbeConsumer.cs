@@ -1,6 +1,7 @@
 using BuildingBlocks.Contracts.Events.Inventory;
 using BuildingBlocks.Contracts.Events.Ordering;
 using BuildingBlocks.Contracts.Events.Payment;
+using BuildingBlocks.Contracts.Events.Shipping;
 using MassTransit;
 using System.Collections.Concurrent;
 
@@ -12,6 +13,8 @@ public sealed class EventProbeConsumer :
     IConsumer<PaymentRequestedIntegrationEvent>,
     IConsumer<PaymentCompletedIntegrationEvent>,
     IConsumer<PaymentFailedIntegrationEvent>,
+    IConsumer<ShippingRequestedIntegrationEvent>,
+    IConsumer<ShipmentCreatedIntegrationEvent>,
     IConsumer<ReleaseInventoryRequestedIntegrationEvent>,
     IConsumer<InventoryReleasedIntegrationEvent>,
     IConsumer<Fault<PaymentRequestedIntegrationEvent>>,
@@ -33,6 +36,10 @@ public sealed class EventProbeConsumer :
     public Task Consume(ConsumeContext<PaymentCompletedIntegrationEvent> context) => Record(context.Message);
 
     public Task Consume(ConsumeContext<PaymentFailedIntegrationEvent> context) => Record(context.Message);
+
+    public Task Consume(ConsumeContext<ShippingRequestedIntegrationEvent> context) => Record(context.Message);
+
+    public Task Consume(ConsumeContext<ShipmentCreatedIntegrationEvent> context) => Record(context.Message);
 
     public Task Consume(ConsumeContext<ReleaseInventoryRequestedIntegrationEvent> context) => Record(context.Message);
 
@@ -60,4 +67,13 @@ public sealed class EventProbeStore
         _messages.TryGetValue(typeof(T), out var messages)
             ? messages.Cast<T>().ToArray()
             : Array.Empty<T>();
+
+    public string Describe() =>
+        _messages.Count == 0
+            ? "none"
+            : string.Join(
+                ", ",
+                _messages
+                    .OrderBy(pair => pair.Key.Name)
+                    .Select(pair => $"{pair.Key.Name}={pair.Value.Count}"));
 }

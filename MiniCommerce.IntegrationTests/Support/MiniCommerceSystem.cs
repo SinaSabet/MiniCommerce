@@ -187,23 +187,41 @@ public sealed class MiniCommerceSystem : IAsyncDisposable
                 Message = message
             });
 
-    public Task<OrderSagaState> WaitForSagaStateAsync(
+    public async Task<OrderSagaState> WaitForSagaStateAsync(
         Guid orderId,
         string state,
-        TimeSpan? timeout = null) =>
-        EventuallyAsync(async () =>
+        TimeSpan? timeout = null)
+    {
+        var wait = timeout ?? TimeSpan.FromSeconds(45);
+        var deadline = DateTime.UtcNow + wait;
+        string? lastObservedState = null;
+
+        while (DateTime.UtcNow < deadline)
         {
             await using var scope = _orderingHost!.Services.CreateAsyncScope();
             var dbContext = scope.ServiceProvider.GetRequiredService<OrderSagaDbContext>();
-            return await dbContext.Set<OrderSagaState>()
+            var saga = await dbContext.Set<OrderSagaState>()
                 .AsNoTracking()
-                .SingleOrDefaultAsync(x => x.OrderId == orderId && x.CurrentState == state);
-        }, timeout);
+                .SingleOrDefaultAsync(x => x.OrderId == orderId);
+
+            lastObservedState = saga?.CurrentState;
+            if (lastObservedState == state)
+                return saga!;
+
+            await Task.Delay(200);
+        }
+
+        throw new TimeoutException(
+            $"Saga {orderId} did not reach state '{state}' within {wait}. " +
+            $"Last observed state: '{lastObservedState ?? "not-created"}'. " +
+            $"Observed events: {Probe.Describe()}.");
+    }
 
     public Task<IReadOnlyList<InventoryReservation>> WaitForReservationsAsync(
         Guid orderId,
         ReservationStatus status,
-        int expectedCount) =>
+        int expectedCount,
+        TimeSpan? timeout = null) =>
         EventuallyAsync<IReadOnlyList<InventoryReservation>>(async () =>
         {
             await using var scope = _inventoryHost!.Services.CreateAsyncScope();
@@ -213,7 +231,7 @@ public sealed class MiniCommerceSystem : IAsyncDisposable
                 .Where(x => x.OrderId == orderId && x.Status == status)
                 .ToListAsync();
             return reservations.Count == expectedCount ? reservations : null;
-        });
+        }, timeout);
 
     public async Task<(int OnHand, int Reserved)[]> GetInventoryAsync(Guid[] productIds)
     {
@@ -247,7 +265,7 @@ public sealed class MiniCommerceSystem : IAsyncDisposable
         Func<int, bool> predicate,
         TimeSpan? timeout = null)
     {
-        var deadline = DateTime.UtcNow + (timeout ?? TimeSpan.FromSeconds(90));
+        var deadline = DateTime.UtcNow + (timeout ?? TimeSpan.FromSeconds(45));
         while (DateTime.UtcNow < deadline)
         {
             if (predicate(await CountOrderingOutboxMessagesAsync()))
@@ -327,7 +345,16 @@ public sealed class MiniCommerceSystem : IAsyncDisposable
         return Host.CreateDefaultBuilder()
             .ConfigureAppConfiguration(configuration => configuration.AddInMemoryCollection(settings))
             .ConfigureLogging(logging => logging.SetMinimumLevel(LogLevel.Warning))
-            .ConfigureServices((context, services) => configureServices(services, context.Configuration))
+            .ConfigureServices((context, services) =>
+            {
+                configureServices(services, context.Configuration);
+                services.Configure<MassTransitHostOptions>(options =>
+                {
+                    options.WaitUntilStarted = true;
+                    options.StartTimeout = TimeSpan.FromMinutes(2);
+                    options.StopTimeout = TimeSpan.FromMinutes(1);
+                });
+            })
             .Build();
     }
 
@@ -374,7 +401,7 @@ public sealed class MiniCommerceSystem : IAsyncDisposable
         TimeSpan? timeout = null)
         where T : class
     {
-        var wait = timeout ?? TimeSpan.FromSeconds(90);
+        var wait = timeout ?? TimeSpan.FromSeconds(45);
         var deadline = DateTime.UtcNow + wait;
         while (DateTime.UtcNow < deadline)
         {
@@ -390,7 +417,7 @@ public sealed class MiniCommerceSystem : IAsyncDisposable
         Func<Task<Guid?>> probe,
         TimeSpan? timeout = null)
     {
-        var wait = timeout ?? TimeSpan.FromSeconds(90);
+        var wait = timeout ?? TimeSpan.FromSeconds(45);
         var deadline = DateTime.UtcNow + wait;
         while (DateTime.UtcNow < deadline)
         {
