@@ -74,6 +74,41 @@ services:
       - minicomm-network
 
 
+  ordering-db-init:
+
+    image: mcr.microsoft.com/mssql-tools18:latest
+
+    container_name: ordering-db-init
+
+    environment:
+      ACCEPT_EULA: "Y"
+
+    command:
+      - /opt/mssql-tools18/bin/sqlcmd
+      - -S
+      - ordering-db,1433
+      - -U
+      - sa
+      - -P
+      - ${MSSQL_PASSWORD}
+      - -C
+      - -b
+      - -i
+      - /scripts/ordering.sql
+      - -i
+      - /scripts/ordersaga.sql
+
+    volumes:
+      - ./Infrastructure/Database/init/ordering:/scripts:ro
+
+    depends_on:
+      ordering-db:
+        condition: service_healthy
+
+    networks:
+      - minicomm-network
+
+
 
 
 
@@ -120,6 +155,39 @@ services:
 
     networks:
 
+      - minicomm-network
+
+
+  inventory-db-init:
+
+    image: mcr.microsoft.com/mssql-tools18:latest
+
+    container_name: inventory-db-init
+
+    environment:
+      ACCEPT_EULA: "Y"
+
+    command:
+      - /opt/mssql-tools18/bin/sqlcmd
+      - -S
+      - inventory-db,1433
+      - -U
+      - sa
+      - -P
+      - ${MSSQL_PASSWORD}
+      - -C
+      - -b
+      - -i
+      - /scripts/inventory.sql
+
+    volumes:
+      - ./Infrastructure/Database/init/inventory:/scripts:ro
+
+    depends_on:
+      inventory-db:
+        condition: service_healthy
+
+    networks:
       - minicomm-network
 
 
@@ -172,6 +240,39 @@ services:
       - minicomm-network
 
 
+  shipping-db-init:
+
+    image: mcr.microsoft.com/mssql-tools18:latest
+
+    container_name: shipping-db-init
+
+    environment:
+      ACCEPT_EULA: "Y"
+
+    command:
+      - /opt/mssql-tools18/bin/sqlcmd
+      - -S
+      - shipping-db,1433
+      - -U
+      - sa
+      - -P
+      - ${MSSQL_PASSWORD}
+      - -C
+      - -b
+      - -i
+      - /scripts/shipping.sql
+
+    volumes:
+      - ./Infrastructure/Database/init/shipping:/scripts:ro
+
+    depends_on:
+      shipping-db:
+        condition: service_healthy
+
+    networks:
+      - minicomm-network
+
+
 
 
   payment-db:
@@ -217,6 +318,39 @@ services:
 
     networks:
 
+      - minicomm-network
+
+
+  payment-db-init:
+
+    image: mcr.microsoft.com/mssql-tools18:latest
+
+    container_name: payment-db-init
+
+    environment:
+      ACCEPT_EULA: "Y"
+
+    command:
+      - /opt/mssql-tools18/bin/sqlcmd
+      - -S
+      - payment-db,1433
+      - -U
+      - sa
+      - -P
+      - ${MSSQL_PASSWORD}
+      - -C
+      - -b
+      - -i
+      - /scripts/payment.sql
+
+    volumes:
+      - ./Infrastructure/Database/init/payment:/scripts:ro
+
+    depends_on:
+      payment-db:
+        condition: service_healthy
+
+    networks:
       - minicomm-network
 
 
@@ -332,9 +466,9 @@ services:
 
     depends_on:
 
-      ordering-db:
+      ordering-db-init:
 
-        condition: service_healthy
+        condition: service_completed_successfully
 
 
       rabbitmq:
@@ -391,9 +525,9 @@ services:
 
     depends_on:
 
-      inventory-db:
+      inventory-db-init:
 
-        condition: service_healthy
+        condition: service_completed_successfully
 
 
       rabbitmq:
@@ -422,7 +556,17 @@ services:
       ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT}
       OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
 
+      ConnectionStrings__ShippingConnection: "Server=shipping-db;Database=MiniCommerce.Shipping;User Id=sa;Password=${MSSQL_PASSWORD};TrustServerCertificate=True"
+
+      RabbitMQ__Host: rabbitmq
+      RabbitMQ__VirtualHost: /
+      RabbitMQ__Username: ${RABBIT_USERNAME}
+      RabbitMQ__Password: ${RABBIT_PASSWORD}
+
     depends_on:
+      shipping-db-init:
+        condition: service_completed_successfully
+
       rabbitmq:
         condition: service_healthy
 
@@ -473,9 +617,9 @@ services:
 
     depends_on:
 
-      payment-db:
+      payment-db-init:
 
-        condition: service_healthy
+        condition: service_completed_successfully
 
 
       rabbitmq:
