@@ -1,4 +1,5 @@
-﻿using OpenTelemetry.Resources;
+﻿using OpenTelemetry.Metrics;
+using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 
 namespace Payment.API.Extensions;
@@ -25,6 +26,17 @@ public static class OpenTelemetryExtensions
                     .AddSqlClientInstrumentation()
                     .AddSource("MassTransit")
                     .AddOtlpExporter();
+            })
+            .WithMetrics(metrics =>
+            {
+                metrics
+                .AddAspNetCoreInstrumentation()
+                .AddHttpClientInstrumentation()
+                .AddSqlClientInstrumentation()
+                .AddRuntimeInstrumentation()
+                .AddProcessInstrumentation()
+                .AddMeter("MassTransit")
+                .AddOtlpExporter();
             });
 
         return services;

@@ -1,3 +1,4 @@
+using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 
@@ -14,6 +15,11 @@ public static class OpenTelemetryExtensions
             .WithTracing(tracing => tracing
                 .AddHttpClientInstrumentation()
                 .AddSource("MassTransit")
+                .AddOtlpExporter())
+            .WithMetrics(metrics => metrics
+                .AddRuntimeInstrumentation()
+                .AddProcessInstrumentation()
+                .AddMeter("MassTransit")
                 .AddOtlpExporter());
 
         return services;

@@ -1,4 +1,5 @@
 using OpenTelemetry.Resources;
+using OpenTelemetry.Metrics;
 using OpenTelemetry.Trace;
 
 namespace Ordering.API.Extensions;
@@ -16,6 +17,14 @@ public static class OpenTelemetryExtensions
                 .AddHttpClientInstrumentation()
                 .AddSqlClientInstrumentation()
                 .AddSource("MassTransit")
+                .AddOtlpExporter())
+            .WithMetrics(metrics => metrics
+                .AddAspNetCoreInstrumentation()
+                .AddHttpClientInstrumentation()
+                .AddSqlClientInstrumentation()
+                .AddRuntimeInstrumentation()
+                .AddProcessInstrumentation()
+                .AddMeter("MassTransit")
                 .AddOtlpExporter());
 
         return services;
