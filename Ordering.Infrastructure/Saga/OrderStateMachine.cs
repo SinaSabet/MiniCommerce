@@ -329,10 +329,7 @@ public sealed class OrderStateMachine
         );
 
 
-        DuringAny(
-            Ignore(PaymentTimeout.Received),
-            Ignore(ShippingTimeout.Received)
-        );
+       
 
         During(
 
