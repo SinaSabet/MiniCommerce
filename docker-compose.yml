@@ -354,6 +354,37 @@ services:
       - minicomm-network
 
 
+  database-migrator:
+
+    build:
+      context: .
+      dockerfile: MiniCommerce.DatabaseMigrator/Dockerfile
+
+    image: minicommerce-database-migrator
+
+    container_name: minicomm-database-migrator
+
+    environment:
+      ConnectionStrings__OrderingConnection: "Server=ordering-db;Database=MiniCommerce.Ordering;User Id=sa;Password=${MSSQL_PASSWORD};TrustServerCertificate=True"
+      ConnectionStrings__OrderSagaConnection: "Server=ordering-db;Database=MiniCommerce.OrderSaga;User Id=sa;Password=${MSSQL_PASSWORD};TrustServerCertificate=True"
+      ConnectionStrings__InventoryConnection: "Server=inventory-db;Database=MiniCommerce.Inventory;User Id=sa;Password=${MSSQL_PASSWORD};TrustServerCertificate=True"
+      ConnectionStrings__PaymentConnection: "Server=payment-db;Database=MiniCommerce.Payment;User Id=sa;Password=${MSSQL_PASSWORD};TrustServerCertificate=True"
+      ConnectionStrings__ShippingConnection: "Server=shipping-db;Database=MiniCommerce.Shipping;User Id=sa;Password=${MSSQL_PASSWORD};TrustServerCertificate=True"
+
+    depends_on:
+      ordering-db-init:
+        condition: service_completed_successfully
+      inventory-db-init:
+        condition: service_completed_successfully
+      payment-db-init:
+        condition: service_completed_successfully
+      shipping-db-init:
+        condition: service_completed_successfully
+
+    networks:
+      - minicomm-network
+
+
 
 
 
@@ -475,6 +506,10 @@ services:
 
         condition: service_healthy
 
+      database-migrator:
+
+        condition: service_completed_successfully
+
 
     networks:
 
@@ -534,6 +569,10 @@ services:
 
         condition: service_healthy
 
+      database-migrator:
+
+        condition: service_completed_successfully
+
 
     networks:
 
@@ -569,6 +608,9 @@ services:
 
       rabbitmq:
         condition: service_healthy
+
+      database-migrator:
+        condition: service_completed_successfully
 
     networks:
       - minicomm-network
@@ -625,6 +667,10 @@ services:
       rabbitmq:
 
         condition: service_healthy
+
+      database-migrator:
+
+        condition: service_completed_successfully
 
 
     networks:
