@@ -65,14 +65,6 @@ public sealed class OrderStateMachine
     public Event<ShippingFailedIntegrationEvent> ShippingFailed { get; private set; } = default!;
 
 
-    // Internal Saga timeout event
-    public Event<PaymentTimeoutExpired> PaymentTimeoutExpired { get; private set; } = default!;
-
-
-    public Event<ShippingTimeoutExpired> ShippingTimeoutExpired { get; private set; } = default!;
-
-
-
     public Schedule<OrderSagaState, PaymentTimeoutExpired> PaymentTimeout { get; private set; } = default!;
 
 
@@ -245,26 +237,6 @@ public sealed class OrderStateMachine
                         context.Message.Message.OrderId);
             });
 
-        Event(() => PaymentTimeoutExpired,
-            x =>
-            {
-                x.CorrelateById(
-                    context =>
-                        context.Message.OrderId);
-            });
-
-
-
-        Event(() => ShippingTimeoutExpired,
-            x =>
-            {
-                x.CorrelateById(
-                    context =>
-                        context.Message.OrderId);
-            });
-
-
-
         Event(() => PaymentFaulted,
             x =>
             {
@@ -357,7 +329,10 @@ public sealed class OrderStateMachine
         );
 
 
-
+        DuringAny(
+            Ignore(PaymentTimeout.Received),
+            Ignore(ShippingTimeout.Received)
+        );
 
         During(
 
@@ -690,7 +665,7 @@ public sealed class OrderStateMachine
             AwaitingShipping,
 
 
-            When(ShippingTimeoutExpired)
+            When(ShippingTimeout.Received)
 
 
             .Then(context =>
@@ -780,7 +755,7 @@ public sealed class OrderStateMachine
 
             AwaitingPayment,
 
-            When(PaymentTimeoutExpired)
+            When(PaymentTimeout.Received)
 
 
             .Then(context =>
