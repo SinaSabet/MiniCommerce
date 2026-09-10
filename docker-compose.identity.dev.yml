@@ -1,0 +1,64 @@
+services:
+
+  keycloak-db:
+    image: postgres:17-alpine
+    container_name: minicomm-keycloak-db
+    restart: unless-stopped
+
+    environment:
+      POSTGRES_DB: keycloak
+      POSTGRES_USER: ${KEYCLOAK_DB_USERNAME}
+      POSTGRES_PASSWORD: ${KEYCLOAK_DB_PASSWORD}
+
+    volumes:
+      - keycloak-postgres-data:/var/lib/postgresql/data
+
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${KEYCLOAK_DB_USERNAME} -d keycloak"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+    networks:
+      - minicomm-identity-network
+
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.7.3
+    container_name: minicomm-keycloak
+    restart: unless-stopped
+
+    command:
+      - start-dev
+
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN_USERNAME}
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD}
+
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://keycloak-db:5432/keycloak
+      KC_DB_USERNAME: ${KEYCLOAK_DB_USERNAME}
+      KC_DB_PASSWORD: ${KEYCLOAK_DB_PASSWORD}
+
+      KC_HEALTH_ENABLED: "true"
+      KC_METRICS_ENABLED: "true"
+
+    ports:
+      - "127.0.0.1:8080:8080"
+      - "127.0.0.1:9000:9000"
+
+    depends_on:
+      keycloak-db:
+        condition: service_healthy
+
+    networks:
+      - minicomm-identity-network
+
+
+volumes:
+  keycloak-postgres-data:
+
+
+networks:
+  minicomm-identity-network:
+    driver: bridge
